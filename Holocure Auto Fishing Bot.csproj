@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net4.8</TargetFramework>
+    <RootNamespace>Holocure_Auto_Fishing_Bot</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <usewindowsforms>true</usewindowsforms>
+  </PropertyGroup>
+
+</Project>
