@@ -1,205 +1,121 @@
-﻿using System;
-using System.Drawing;
-using System.Drawing.Imaging;
+﻿using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
+using System.IO;
 using System.Threading;
-
-struct Rect
-{
-    public int Left;
-    public int Top;
-    public int Right;
-    public int Bottom;
-}
+using static WindowUtils;
 
 static class Images
 {
-    public static Bitmap circle_mod = new Bitmap("img/as2.png");
-
-    public static Bitmap circle = new Bitmap("img/circle.png");
-    public static Bitmap left = new Bitmap("img/left.png");
-    public static Bitmap right = new Bitmap("img/right.png");
-    public static Bitmap up = new Bitmap("img/up.png");
-    public static Bitmap down = new Bitmap("img/down.png");
-
-    public static Bitmap ok = new Bitmap("img/ok.png");
+    public static readonly Image2D circle = new Image2D("img/circle.png");
+    public static readonly Image2D left = new Image2D("img/left.png");
+    public static readonly Image2D right = new Image2D("img/right.png");
+    public static readonly Image2D up = new Image2D("img/up.png");
+    public static readonly Image2D down = new Image2D("img/down.png");
+    public static readonly Image2D ok = new Image2D("img/ok.png");
 }
 
 static class Program
 {
-    [DllImport("user32.dll")]
-    static extern IntPtr GetWindowRect(IntPtr hWnd, ref Rect rect);
-
-    [DllImport("user32.dll")]
-    static extern IntPtr GetWindowDC(IntPtr hWnd);
-
-    [DllImport("gdi32.dll")]
-    static extern uint BitBlt(
-        IntPtr hdcDest,
-        int xDest,
-        int yDest,
-        int wDest,
-        int hDest,
-        IntPtr hdcSource,
-        int xSrc,
-        int ySrc,
-        uint rop
-    );
-
-    [DllImport("user32.dll")]
-    static extern int ReleaseDC(IntPtr hWnd, IntPtr hDc);
+    private struct Settings
+    {
+        public double Resolution { get; set; }
+        public string[] TheButtons { get; set; }
+        public bool Fullscreen { get; set; }
+    }
 
     static void Main()
     {
+        // Keep console open on crash
+        AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(
+            CrashHandler
+        );
+
+        Settings settings = GetHolocureSettings();
+        Console.WriteLine("Holocure settings found.");
+
+        var image_map = new Dictionary<Image2D, string>
+        {
+            { Images.circle, settings.TheButtons[0] },
+            { Images.left, settings.TheButtons[2] },
+            { Images.right, settings.TheButtons[3] },
+            { Images.up, settings.TheButtons[4] },
+            { Images.down, settings.TheButtons[5] },
+        };
+
         IntPtr hWnd = GetHolocureWindow();
-        var (left, top, width, height) = Ensure640x360(hWnd);
+        Console.WriteLine("Holocure window found.");
 
-        // Align to target circle thingy
-        left += 377;
-        top += 239;
-        Stopwatch sw = Stopwatch.StartNew();
+        if (settings.Fullscreen)
+        {
+            throw new Exception("Please turn off fullscreen.");
+        }
+        if (settings.Resolution != 0.0)
+        {
+            throw new Exception("Please set resolution to 640x360.");
+        }
+
+        Console.WriteLine("Bot started.");
+        // int i = 0;
+        // Stopwatch sw = Stopwatch.StartNew();
         while (true)
         {
-            Bitmap target_area = CaptureWindow(hWnd, left, top, 32, 27);
-            if (target_area.MaskedContains(Images.circle, Images.circle))
+            Image2D target_area = CaptureTargetArea();
+            foreach (var pair in image_map)
             {
-                Console.WriteLine($"Found circle after {sw.Elapsed.TotalSeconds} seconds.");
-                break;
-            }
-            else
-            {
-                Console.WriteLine(
-                    $"Circle not found after {sw.Elapsed.TotalSeconds} seconds. Retrying."
-                );
-            }
-            Thread.Sleep(33);
-        }
-    }
+                Image2D img = pair.Key;
+                string key = pair.Value;
 
-    static IntPtr GetHolocureWindow()
-    {
-        Stopwatch sw = Stopwatch.StartNew();
-
-        while (true)
-        {
-            if (sw.Elapsed.Minutes >= 5)
-            {
-                throw new TimeoutException("Holocure window not found after 5 minutes.");
-            }
-
-            Process[] processes = Process.GetProcessesByName("holocure");
-            if (processes.Length > 0)
-            {
-                return processes[0].MainWindowHandle;
-            }
-            Console.WriteLine("Please open HoloCure. Retrying in 1 second.");
-
-            // Try once per second
-            Thread.Sleep(1000);
-        }
-    }
-
-    static (int left, int top, int width, int height) Ensure640x360(IntPtr hWnd)
-    {
-        while (true)
-        {
-            Rect rect = new Rect();
-            GetWindowRect(hWnd, ref rect);
-            int width = rect.Right - rect.Left;
-            int height = rect.Bottom - rect.Top;
-            if (
-                // Check if window is minimised
-                rect.Right < 0
-                || rect.Bottom < 0
-                // Check if resolution is wrong
-                || width < 640
-                || width >= 1280
-                || height < 360
-                || height >= 720
-            )
-            {
-                Console.WriteLine(
-                    "Please change HoloCure resolution to 640x360 and ensure it is not misimised. Retrying in 1 second."
-                );
-            }
-            else
-            {
-                return ((width - 640) / 2, 31, 640, 360);
-            }
-            Thread.Sleep(1000);
-        }
-    }
-
-    static Bitmap CaptureWindow(
-        IntPtr hWnd,
-        int left = 0,
-        int top = 0,
-        int width = -1,
-        int height = -1
-    )
-    {
-        Rect rect = new Rect();
-        GetWindowRect(hWnd, ref rect);
-        rect.Left += left;
-        rect.Top += top;
-
-        if (width < 0)
-        {
-            width = rect.Right - rect.Left;
-        }
-        if (height < 0)
-        {
-            height = rect.Bottom - rect.Top;
-        }
-
-        Bitmap bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-        Graphics graphics = Graphics.FromImage(bmp);
-        IntPtr hdcBitmap = graphics.GetHdc();
-
-        IntPtr hdcWindow = GetWindowDC(hWnd);
-
-        BitBlt(hdcBitmap, 0, 0, width, height, hdcWindow, left, top, 0x00CC0020); // SRCCOPY
-
-        graphics.ReleaseHdc(hdcBitmap);
-        ReleaseDC(hWnd, hdcWindow);
-
-        return bmp;
-    }
-
-    // Check that colors are close enough instead of exactly the same
-    static bool MaskedEquals(this Bitmap self, Bitmap other, Bitmap mask, int left, int top)
-    {
-        for (int i = 0; i < other.Width; i++)
-        {
-            for (int j = 0; j < other.Height; j++)
-            {
-                if (mask.GetPixel(i, j).A == 0)
+                if (target_area.MaskedContains(img, img))
                 {
-                    continue;
-                }
+                    Console.WriteLine($"Pressing {key}.");
+                    InputUtils.PressKey(hWnd, key);
+                    // Wait until game updates to release key
+                    do
+                    {
+                        Thread.Sleep(1);
+                        target_area = CaptureTargetArea();
+                    } while (target_area.MaskedContains(img, img));
+                    InputUtils.ReleaseKey(hWnd, key);
 
-                if (other.GetPixel(i, j) != self.GetPixel(left + i, top + j))
-                {
-                    return false;
+                    break;
                 }
             }
+
+            // i = (i + 1) % 100;
+            // target_area.Save($"debug imgs/target_area_{i}.png");
+
+            // Wait for half a frame
+            // while (sw.ElapsedMilliseconds < 1000 / 120)
+            // {
+            //     Thread.Sleep(1);
+            // }
+            // sw.Restart();
         }
-        return true;
+
+        Image2D CaptureTargetArea() => CaptureWindow(hWnd, 383, 273, 36, 21);
     }
 
-    static bool MaskedContains(this Bitmap self, Bitmap other, Bitmap mask)
+    private static void CrashHandler(object sender, UnhandledExceptionEventArgs args)
     {
-        for (int x = 0; x <= self.Width - other.Width; x++)
+        Console.WriteLine($"\n{args.ExceptionObject}\n\nPress any key to exit.");
+        Console.ReadKey();
+        Environment.Exit(1);
+    }
+
+    private static Settings GetHolocureSettings()
+    {
+        string user_path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        string file_path = $"{user_path}\\AppData\\Local\\HoloCure\\settings.json";
+        if (!File.Exists(file_path))
         {
-            for (int y = 0; y <= self.Height - other.Height; y++)
-            {
-                if (self.MaskedEquals(other, mask, x, y))
-                {
-                    return true;
-                }
-            }
+            throw new FileNotFoundException(
+                "Settings file not found. HoloCure may not be installed."
+            );
         }
-        return false;
+
+        string json_text = File.ReadAllText(file_path);
+        return JsonConvert.DeserializeObject<Settings>(json_text);
     }
 }

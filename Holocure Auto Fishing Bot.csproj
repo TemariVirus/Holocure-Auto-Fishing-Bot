@@ -6,6 +6,11 @@
     <RootNamespace>Holocure_Auto_Fishing_Bot</RootNamespace>
     <UseWPF>true</UseWPF>
     <usewindowsforms>true</usewindowsforms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
 
 </Project>
