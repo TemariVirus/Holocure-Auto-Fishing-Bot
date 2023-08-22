@@ -12,7 +12,7 @@ using static WindowUtils;
 
 static class Images
 {
-    public static readonly Image2D Target = new Image2D("img/target circle.png");
+    // public static readonly Image2D Target = new Image2D("img/target circle.png");
 
     public static readonly Image2D Circle = new Image2D("img/circle.png");
     public static readonly Image2D Left = new Image2D("img/left.png");
@@ -117,6 +117,7 @@ static class Program
                     // Wait until game updates to release key
                     do
                     {
+                        Thread.Sleep(1);
                         target_area = CaptureTargetArea();
                     } while (target_area.Contains(img));
                     InputUtils.ReleaseKey(hWnd, key);
@@ -126,7 +127,7 @@ static class Program
             }
 
             // If no notes for too long, restart
-            if (note_timer.ElapsedMilliseconds >= 1500)
+            if (note_timer.ElapsedMilliseconds >= 1200)
             {
                 playing = false;
                 note_timer.Restart();
@@ -140,9 +141,9 @@ static class Program
         }
 
         // Laptop on 125% scale
-        // Image2D CaptureTargetArea() => CaptureWindow(hWnd, 384, 280, 40, 21);
+        Image2D CaptureTargetArea() => CaptureWindow(hWnd, 387, 280, 42, 21);
         // Desktop on 100% scale
-        Image2D CaptureTargetArea() => CaptureWindow(hWnd, 388, 273, 40, 21);
+        // Image2D CaptureTargetArea() => CaptureWindow(hWnd, 388, 273, 40, 21);
     }
 
     private static void CrashHandler(object sender, UnhandledExceptionEventArgs args)

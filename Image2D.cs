@@ -89,11 +89,6 @@ public sealed class Image2D
 
     private int GetIndex(int x, int y)
     {
-        if (x < 0 || x >= Width || y < 0 || y >= Height)
-        {
-            throw new IndexOutOfRangeException();
-        }
-
         return y * Width + x;
     }
 
@@ -146,7 +141,7 @@ public sealed class Image2D
         return true;
     }
 
-    public bool MaskedContains(Image2D other)
+    public bool Contains(Image2D other)
     {
         for (int x = 0; x <= Width - other.Width; x++)
         {
@@ -162,32 +157,32 @@ public sealed class Image2D
         return false;
     }
 
-    // public void Save(string path)
-    // {
-    //     Bitmap bmp = new Bitmap(Width, Height);
-    //     BitmapData data = bmp.LockBits(
-    //         new Rectangle(0, 0, bmp.Width, bmp.Height),
-    //         ImageLockMode.WriteOnly,
-    //         PixelFormat.Format32bppArgb
-    //     );
-    //     unsafe
-    //     {
-    //         byte* ptrCurrentRow = (byte*)data.Scan0;
-    //         for (int y = 0; y < data.Height; y++, ptrCurrentRow += data.Stride)
-    //         {
-    //             for (int x = 0; x < data.Width; x++)
-    //             {
-    //                 RGBAColor color = this[x, y];
-    //                 ptrCurrentRow[x * 4 + 3] = color.R;
-    //                 ptrCurrentRow[x * 4 + 2] = color.G;
-    //                 ptrCurrentRow[x * 4 + 1] = color.B;
-    //                 ptrCurrentRow[x * 4] = color.A;
-    //             }
-    //         }
-    //     }
+    public void Save(string path)
+    {
+        Bitmap bmp = new Bitmap(Width, Height);
+        BitmapData data = bmp.LockBits(
+            new Rectangle(0, 0, bmp.Width, bmp.Height),
+            ImageLockMode.WriteOnly,
+            PixelFormat.Format32bppArgb
+        );
+        unsafe
+        {
+            byte* ptrCurrentRow = (byte*)data.Scan0;
+            for (int y = 0; y < data.Height; y++, ptrCurrentRow += data.Stride)
+            {
+                for (int x = 0; x < data.Width; x++)
+                {
+                    ARGBColor color = this[x, y];
+                    ptrCurrentRow[x * 4 + 3] = color.A;
+                    ptrCurrentRow[x * 4 + 2] = color.R;
+                    ptrCurrentRow[x * 4 + 1] = color.G;
+                    ptrCurrentRow[x * 4] = color.B;
+                }
+            }
+        }
 
-    //     bmp.UnlockBits(data);
-    //     bmp.Save(path);
-    //     bmp.Dispose();
-    // }
+        bmp.UnlockBits(data);
+        bmp.Save(path);
+        bmp.Dispose();
+    }
 }
