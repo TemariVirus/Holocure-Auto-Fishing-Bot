@@ -122,13 +122,7 @@ public sealed class Image2D
         src.UnlockBits(data);
     }
 
-    public bool MaskedEquals(
-        Image2D other,
-        Image2D mask,
-        int left,
-        int top,
-        double threshold = 0.0069
-    )
+    public bool MaskedEquals(Image2D other, int left = 0, int top = 0, double threshold = 0.0069)
     {
         double sum = 0;
         threshold *= other.OpaqueCount;
@@ -136,7 +130,7 @@ public sealed class Image2D
         {
             for (int j = 0; j < other.Height; j++)
             {
-                if (mask[i, j].A == 0)
+                if (other[i, j].A == 0)
                 {
                     continue;
                 }
@@ -152,13 +146,13 @@ public sealed class Image2D
         return sum <= threshold;
     }
 
-    public bool MaskedContains(Image2D other, Image2D mask)
+    public bool MaskedContains(Image2D other)
     {
         for (int x = 0; x <= Width - other.Width; x++)
         {
             for (int y = 0; y <= Height - other.Height; y++)
             {
-                if (MaskedEquals(other, mask, x, y))
+                if (MaskedEquals(other, x, y))
                 {
                     return true;
                 }

@@ -6,6 +6,8 @@ using System.IO;
 using System.Threading;
 using static WindowUtils;
 
+// TODO: Use different target areas for different buttons
+
 static class Images
 {
     public static readonly Image2D circle = new Image2D("img/circle.png");
@@ -35,7 +37,7 @@ static class Program
         Settings settings = GetHolocureSettings();
         Console.WriteLine("Holocure settings found.");
 
-        var image_map = new Dictionary<Image2D, string>
+        var note_map = new Dictionary<Image2D, string>
         {
             { Images.circle, settings.TheButtons[0] },
             { Images.left, settings.TheButtons[2] },
@@ -57,44 +59,81 @@ static class Program
         }
 
         Console.WriteLine("Bot started.");
-        // int i = 0;
-        // Stopwatch sw = Stopwatch.StartNew();
+        int i = 0;
+        Stopwatch sw = Stopwatch.StartNew();
         while (true)
         {
+            i++;
+
+            if (sw.ElapsedMilliseconds >= 1000)
+            {
+                Console.WriteLine($"FPS: {i / sw.Elapsed.TotalSeconds:F2}");
+                i = 0;
+                sw.Restart();
+            }
+
+            // i = (i + 1) % 100;
+            // target_area.Save($"debug imgs/target_area_{i}.png");
+
+            // Find note
+            bool note_found = false;
             Image2D target_area = CaptureTargetArea();
-            foreach (var pair in image_map)
+            foreach (var pair in note_map)
             {
                 Image2D img = pair.Key;
                 string key = pair.Value;
 
-                if (target_area.MaskedContains(img, img))
+                if (target_area.MaskedContains(img))
                 {
-                    Console.WriteLine($"Pressing {key}.");
+                    Console.WriteLine($"Pressing {key}");
                     InputUtils.PressKey(hWnd, key);
                     // Wait until game updates to release key
                     do
                     {
                         Thread.Sleep(1);
                         target_area = CaptureTargetArea();
-                    } while (target_area.MaskedContains(img, img));
+                    } while (target_area.MaskedContains(img));
                     InputUtils.ReleaseKey(hWnd, key);
 
+                    note_found = true;
                     break;
                 }
             }
+            if (note_found)
+            {
+                continue;
+            }
 
-            // i = (i + 1) % 100;
-            // target_area.Save($"debug imgs/target_area_{i}.png");
+            // Check for ok button
+            Image2D ok_area = CaptureOkButton();
+            if (ok_area.MaskedEquals(Images.ok))
+            {
+                string key = settings.TheButtons[0];
+                Console.WriteLine($"Pressing {key}");
+                InputUtils.PressKey(hWnd, key);
+                // Wait until game updates to release key
+                do
+                {
+                    Thread.Sleep(1);
+                    ok_area = CaptureTargetArea();
+                } while (ok_area.MaskedContains(Images.ok));
+                InputUtils.ReleaseKey(hWnd, key);
+                Thread.Sleep(67);
 
-            // Wait for half a frame
-            // while (sw.ElapsedMilliseconds < 1000 / 120)
-            // {
-            //     Thread.Sleep(1);
-            // }
-            // sw.Restart();
+                Console.WriteLine($"Pressing {key}");
+                InputUtils.PressKey(hWnd, key);
+                Thread.Sleep(33);
+                InputUtils.ReleaseKey(hWnd, key);
+                Thread.Sleep(1000);
+            }
         }
 
-        Image2D CaptureTargetArea() => CaptureWindow(hWnd, 383, 273, 36, 21);
+        // Laptop on 125% scale
+        Image2D CaptureTargetArea() => CaptureWindow(hWnd, 384, 280, 38, 21);
+        // Desktop on 100% scale
+        // Image2D CaptureTargetArea() => CaptureWindow(hWnd, 383, 273, 36, 21);
+        // Laptop on 125% scale
+        Image2D CaptureOkButton() => CaptureWindow(hWnd, 323, 299, 15, 9);
     }
 
     private static void CrashHandler(object sender, UnhandledExceptionEventArgs args)
