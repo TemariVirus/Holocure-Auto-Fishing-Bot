@@ -61,6 +61,6 @@ public static class InputUtils
         IntPtr key_code = (IntPtr)KeyMapping[key];
         PostMessage(hWnd, WM_KEYDOWN, key_code, IntPtr.Zero);
         Thread.Sleep(33);
-        PostMessage(hWnd, WM_KEYUP, key_code, (IntPtr)0xC000_0000);
+        PostMessage(hWnd, WM_KEYUP, key_code, IntPtr.Zero);
     }
 }
