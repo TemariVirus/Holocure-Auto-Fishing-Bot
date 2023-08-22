@@ -28,14 +28,14 @@ public readonly struct RGBAColor
         A = (byte)alpha;
     }
 
-    public static implicit operator RGBAColor(Color color) =>
-        new RGBAColor(color.R, color.G, color.B, color.A);
+    // public static implicit operator RGBAColor(Color color) =>
+    //     new RGBAColor(color.R, color.G, color.B, color.A);
 
     public double ColorDiff(RGBAColor other)
     {
-        double dR = Math.Abs(R - other.R);
-        double dG = Math.Abs(G - other.G);
-        double dB = Math.Abs(B - other.B);
+        int dR = Math.Abs(R - (int)other.R);
+        int dG = Math.Abs(G - (int)other.G);
+        int dB = Math.Abs(B - (int)other.B);
         // Scale between 0 and 1
         return (double)(dR + dG + dB) / 3 / 255;
     }
@@ -46,6 +46,26 @@ public sealed class Image2D
     public int Width { get; }
     public int Height { get; }
     private readonly RGBAColor[] _pixels;
+
+    private int _opaqueCount = -1;
+    public int OpaqueCount
+    {
+        get
+        {
+            if (_opaqueCount == -1)
+            {
+                _opaqueCount = 0;
+                foreach (RGBAColor pixel in _pixels)
+                {
+                    if (pixel.A != 0)
+                    {
+                        _opaqueCount++;
+                    }
+                }
+            }
+            return _opaqueCount;
+        }
+    }
 
     public RGBAColor this[int x, int y]
     {
@@ -111,7 +131,7 @@ public sealed class Image2D
     )
     {
         double sum = 0;
-        int count = 0;
+        threshold *= other.OpaqueCount;
         for (int i = 0; i < other.Width; i++)
         {
             for (int j = 0; j < other.Height; j++)
@@ -122,11 +142,14 @@ public sealed class Image2D
                 }
 
                 sum += this[left + i, top + j].ColorDiff(other[i, j]);
-                count++;
+                if (sum > threshold)
+                {
+                    return false;
+                }
             }
         }
 
-        return sum / count <= threshold;
+        return sum <= threshold;
     }
 
     public bool MaskedContains(Image2D other, Image2D mask)
