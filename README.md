@@ -6,12 +6,13 @@ Currently the bot achieves nearly 100% accuracy, and uses very little CPU resour
 
 ## How to use / 使い方
 
-1. Download the executable from the [releases](placeholder) page. / [リリース](placeholder)から exe をダウンロードしてください。
-2. Run HoloCure. / HoloCure を起動してください。
-3. Stand next to the pond so that you can fish. / 池のすぐそばに立ってください。
-4. Run the executable. / exe を実行してください。
-5. If you get a warning from Windows Defender, click on "More info" and then "Run anyway". / Windows Defender から警告が出たら、「詳細情報」をクリックしてから「実行」をクリックしてください。
-6. Happy fishing! / 楽しい釣りを！
+1. Download Holocure.Auto.Fishing.Bot.zip from the [releases][placeholder](https://github.com/Zemogus/Holocure-Auto-Fishing-Bot/releases) page. / [リリース][placeholder](https://github.com/Zemogus/Holocure-Auto-Fishing-Bot/releases)からHolocure.Auto.Fishing.Bot.zipをダウンロードしてください。
+2. Unzip the downloaded file / ダウンロードしたファイルを解凍してください。
+3. Run HoloCure. / HoloCure を起動してください。
+4. Stand next to the pond so that you can fish. / 池のすぐそばに立ってください。
+5. Run the executable. / 実行ファイルを起動してください。
+6. If you get a warning from Windows Defender, click on "More info" and then "Run anyway". / Windows Defender から警告が出たら、「詳細情報」をクリックしてから「実行」をクリックしてください。
+7. Happy fishing! / 楽しい釣りを！
 
 ## Dependencies
 
