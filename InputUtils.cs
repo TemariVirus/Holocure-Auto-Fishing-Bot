@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 public static class InputUtils
 {
@@ -9,6 +10,7 @@ public static class InputUtils
 
     private static readonly Dictionary<string, uint> KeyMapping = new Dictionary<string, uint>
     {
+        { "ENTER", 0x0D },
         { "SHIFT", 0x10 },
         { "CTRL", 0x11 },
         { "ALT", 0x12 },
@@ -51,19 +53,14 @@ public static class InputUtils
         { "Z", 0x5A },
     };
 
-    public static void PressKey(IntPtr hWnd, string key)
+    public static void SendKey(IntPtr hWnd, string key)
     {
         const uint WM_KEYDOWN = 0x0100;
-
-        IntPtr key_code = (IntPtr)KeyMapping[key];
-        PostMessage(hWnd, WM_KEYDOWN, key_code, IntPtr.Zero);
-    }
-
-    public static void ReleaseKey(IntPtr hWnd, string key)
-    {
         const uint WM_KEYUP = 0x0101;
 
         IntPtr key_code = (IntPtr)KeyMapping[key];
+        PostMessage(hWnd, WM_KEYDOWN, key_code, IntPtr.Zero);
+        Thread.Sleep(33);
         PostMessage(hWnd, WM_KEYUP, key_code, (IntPtr)0xC000_0000);
     }
 }

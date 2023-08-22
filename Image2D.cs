@@ -11,17 +11,6 @@ public readonly struct ARGBColor
 
     public ARGBColor(int alpha, int red, int green, int blue)
     {
-#if DEBUG
-        if (alpha < 0 || alpha > 255)
-            throw new ArgumentOutOfRangeException(nameof(alpha));
-        if (red < 0 || red > 255)
-            throw new ArgumentOutOfRangeException(nameof(red));
-        if (green < 0 || green > 255)
-            throw new ArgumentOutOfRangeException(nameof(green));
-        if (blue < 0 || blue > 255)
-            throw new ArgumentOutOfRangeException(nameof(blue));
-#endif
-
         A = (byte)alpha;
         R = (byte)red;
         G = (byte)green;
@@ -71,8 +60,8 @@ public sealed class Image2D
 
     public ARGBColor this[int x, int y]
     {
-        get => _pixels[GetIndex(x, y)];
-        set => _pixels[GetIndex(x, y)] = value;
+        get => _pixels[y * Width + x];
+        set => _pixels[y * Width + x] = value;
     }
 
     public Image2D(Bitmap source)
@@ -86,11 +75,6 @@ public sealed class Image2D
 
     public Image2D(string filename)
         : this(new Bitmap(filename)) { }
-
-    private int GetIndex(int x, int y)
-    {
-        return y * Width + x;
-    }
 
     private void CopyFromBitmap(Bitmap src)
     {
@@ -119,7 +103,7 @@ public sealed class Image2D
         src.UnlockBits(data);
     }
 
-    public bool MaskedEquals(Image2D other, int left = 0, int top = 0, double threshold = 0.02)
+    public bool CroppedEquals(Image2D other, int left = 0, int top = 0, double threshold = 0.0563)
     {
         for (int i = 0; i < other.Width; i++)
         {
@@ -141,20 +125,20 @@ public sealed class Image2D
         return true;
     }
 
-    public bool Contains(Image2D other)
+    public (int x, int y) Find(Image2D other)
     {
         for (int x = 0; x <= Width - other.Width; x++)
         {
             for (int y = 0; y <= Height - other.Height; y++)
             {
-                if (MaskedEquals(other, x, y))
+                if (CroppedEquals(other, x, y))
                 {
-                    return true;
+                    return (x, y);
                 }
             }
         }
 
-        return false;
+        return (-1, -1);
     }
 
     public void Save(string path)

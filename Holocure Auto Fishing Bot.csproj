@@ -10,29 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="img\circle.png" />
-    <None Remove="img\down.png" />
-    <None Remove="img\left.png" />
-    <None Remove="img\right.png" />
-    <None Remove="img\up.png" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="img\circle.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="img\down.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="img\left.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="img\right.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="img\up.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <Content Include="img\**" LinkBase="img\" CopyToOutputDirectory="Always" />
   </ItemGroup>
 
   <ItemGroup>

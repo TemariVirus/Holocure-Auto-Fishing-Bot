@@ -1,18 +1,14 @@
 ﻿using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using static WindowUtils;
 
-// TODO:
-// - Use different target areas for different buttons
-// - Find target circle to align the target area
-
-static class Images
+internal static class Images
 {
-    // public static readonly Image2D Target = new Image2D("img/target circle.png");
+    public static readonly Image2D Target = new Image2D("img/target circle.png");
 
     public static readonly Image2D Circle = new Image2D("img/circle.png");
     public static readonly Image2D Left = new Image2D("img/left.png");
@@ -21,75 +17,92 @@ static class Images
     public static readonly Image2D Down = new Image2D("img/down.png");
 }
 
+internal struct Settings
+{
+    public double Resolution { get; set; }
+    public string[] TheButtons { get; set; }
+    public bool Fullscreen { get; set; }
+}
+
 static class Program
 {
-    private struct Settings
-    {
-        public double Resolution { get; set; }
-        public string[] TheButtons { get; set; }
-        public bool Fullscreen { get; set; }
-    }
+    public static Settings Settings { get; }
 
-    static void Main()
+    private static readonly IntPtr _windowHandle;
+    private static int _targetLeft = -1;
+    private static int _targetTop = -1;
+    private static readonly Stopwatch _noteTimer = new Stopwatch();
+
+    static Program()
     {
         // Keep console open on crash
         AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(
             CrashHandler
         );
 
-        Settings settings = GetHolocureSettings();
-        Console.WriteLine("Holocure settings found.");
-
-        var note_map = new Dictionary<Image2D, string>
+        // Setup
+        try
         {
-            { Images.Circle, settings.TheButtons[0] },
-            { Images.Left, settings.TheButtons[2] },
-            { Images.Right, settings.TheButtons[3] },
-            { Images.Up, settings.TheButtons[4] },
-            { Images.Down, settings.TheButtons[5] },
-        };
+            Settings = GetHolocureSettings();
+            Console.WriteLine("Holocure settings found.");
+            Console.WriteLine($"Buttons: [{string.Join(", ", Settings.TheButtons)}]");
 
-        IntPtr hWnd = GetHolocureWindow();
-        Console.WriteLine("Holocure window found.");
+            _windowHandle = GetHolocureWindow();
+            Console.WriteLine("Holocure window found.");
 
-        if (settings.Fullscreen)
-        {
-            throw new Exception("Please turn off fullscreen.");
+            if (Settings.Fullscreen)
+            {
+                throw new Exception("Please turn off fullscreen.");
+            }
+            if (Settings.Resolution != 0.0)
+            {
+                throw new Exception("Please set resolution to 640x360.");
+            }
         }
-        if (settings.Resolution != 0.0)
+        catch (Exception e)
         {
-            throw new Exception("Please set resolution to 640x360.");
+            CrashHandler(null, new UnhandledExceptionEventArgs(e, false));
         }
+    }
 
+    static void Main()
+    {
         Console.WriteLine("Bot started.");
+        Console.WriteLine(
+            "Please ensure that the minigame is within view at all times (you can still have other windows on top of it).\n"
+        );
+        // Start bot loop
         int capture_count = 0;
-        Stopwatch perf_sw = Stopwatch.StartNew();
-        Stopwatch note_timer = Stopwatch.StartNew();
         bool playing = false;
+        Stopwatch perf_sw = Stopwatch.StartNew();
+        _noteTimer.Restart();
         while (true)
         {
-            // Press confirm button twice to start fishing game
             if (!playing)
             {
                 perf_sw.Stop();
-                string key = settings.TheButtons[0];
 
-                Console.WriteLine($"Pressing {key}");
-                InputUtils.PressKey(hWnd, key);
-                Thread.Sleep(33);
-                InputUtils.ReleaseKey(hWnd, key);
-
-                Thread.Sleep(200);
-
-                Console.WriteLine($"Pressing {key}");
-                InputUtils.PressKey(hWnd, key);
-                Thread.Sleep(33);
-                InputUtils.ReleaseKey(hWnd, key);
-
-                note_timer.Restart();
+                StartFishingGame();
+                _noteTimer.Restart();
                 playing = true;
+
                 perf_sw.Start();
                 continue;
+            }
+
+            if (_targetLeft >= 0 && _targetTop >= 0)
+            {
+                PlayFishingGame();
+            }
+            else
+            {
+                FindTargetArea();
+            }
+
+            // Aim for a little over 60 captures per second to match framerate
+            while (capture_count / perf_sw.Elapsed.TotalSeconds > 69)
+            {
+                Thread.Sleep(1);
             }
 
             // Print captures per second
@@ -103,47 +116,13 @@ static class Program
                 perf_sw.Restart();
             }
 
-            // Find note
-            Image2D target_area = CaptureTargetArea();
-            foreach (var pair in note_map)
-            {
-                Image2D img = pair.Key;
-                string key = pair.Value;
-
-                if (target_area.Contains(img))
-                {
-                    Console.WriteLine($"Pressing {key}");
-                    InputUtils.PressKey(hWnd, key);
-                    // Wait until game updates to release key
-                    do
-                    {
-                        Thread.Sleep(1);
-                        target_area = CaptureTargetArea();
-                    } while (target_area.Contains(img));
-                    InputUtils.ReleaseKey(hWnd, key);
-
-                    break;
-                }
-            }
-
             // If no notes for too long, restart
-            if (note_timer.ElapsedMilliseconds >= 1200)
+            if (_noteTimer.ElapsedMilliseconds >= 1222)
             {
                 playing = false;
-                note_timer.Restart();
-            }
-
-            // Aim for a little over 60 captures per second to match framerate
-            while (capture_count / perf_sw.Elapsed.TotalSeconds > 69)
-            {
-                Thread.Sleep(1);
+                _noteTimer.Restart();
             }
         }
-
-        // Laptop on 125% scale
-        Image2D CaptureTargetArea() => CaptureWindow(hWnd, 387, 280, 42, 21);
-        // Desktop on 100% scale
-        // Image2D CaptureTargetArea() => CaptureWindow(hWnd, 388, 273, 40, 21);
     }
 
     private static void CrashHandler(object sender, UnhandledExceptionEventArgs args)
@@ -166,5 +145,43 @@ static class Program
 
         string json_text = File.ReadAllText(file_path);
         return JsonConvert.DeserializeObject<Settings>(json_text);
+    }
+
+    private static void StartFishingGame()
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            Console.WriteLine($"Pressing ENTER");
+            InputUtils.SendKey(_windowHandle, "ENTER");
+            Thread.Sleep(150);
+        }
+    }
+
+    private static void PlayFishingGame()
+    {
+        int right = Note.Notes.Max(note => note.Right);
+        int bottom = Note.Notes.Max(note => note.Bottom);
+
+        Image2D target_area = CaptureWindow(_windowHandle, _targetLeft, _targetTop, right, bottom);
+        foreach (Note note in Note.Notes)
+        {
+            if (target_area.ContainsNote(note))
+            {
+                Console.WriteLine($"Pressing {note.Button}");
+                InputUtils.SendKey(_windowHandle, note.Button);
+                _noteTimer.Restart();
+                break;
+            }
+        }
+    }
+
+    private static void FindTargetArea()
+    {
+        Image2D screen = CaptureWindow(_windowHandle);
+        (_targetLeft, _targetTop) = screen.Find(Images.Target);
+        if (_targetLeft >= 0 && _targetTop >= 0)
+        {
+            Console.WriteLine($"Target area found: X={_targetLeft}, Y={_targetTop}");
+        }
     }
 }
