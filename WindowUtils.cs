@@ -40,6 +40,22 @@ public static class WindowUtils
     [DllImport("gdi32.dll")]
     private static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
 
+    private static readonly double _scaleFactor = GetScalingFactor();
+
+    // https://stackoverflow.com/a/21450169
+    private static double GetScalingFactor()
+    {
+        const int VERTRES = 10;
+        const int DESKTOPVERTRES = 117;
+
+        Graphics g = Graphics.FromHwnd(IntPtr.Zero);
+        IntPtr desktop = g.GetHdc();
+        double logical_height = GetDeviceCaps(desktop, VERTRES);
+        double physical_height = GetDeviceCaps(desktop, DESKTOPVERTRES);
+
+        return physical_height / logical_height;
+    }
+
     public static IntPtr GetHolocureWindow()
     {
         Process[] processes = Process.GetProcessesByName("holocure");
@@ -51,30 +67,15 @@ public static class WindowUtils
         return processes[0].MainWindowHandle;
     }
 
-    // https://stackoverflow.com/a/21450169
-    private static float GetScalingFactor()
-    {
-        const int VERTRES = 10;
-        const int DESKTOPVERTRES = 117;
-
-        Graphics g = Graphics.FromHwnd(IntPtr.Zero);
-        IntPtr desktop = g.GetHdc();
-        int logical_height = GetDeviceCaps(desktop, VERTRES);
-        int physical_height = GetDeviceCaps(desktop, DESKTOPVERTRES);
-
-        return (float)physical_height / (float)logical_height;
-    }
-
     private static Rect GetWindowRectUnscaled(IntPtr hWnd)
     {
         Rect rect = new Rect();
         GetWindowRect(hWnd, ref rect);
 
-        float scale = GetScalingFactor();
-        rect.Left = (int)(rect.Left * scale);
-        rect.Top = (int)(rect.Top * scale);
-        rect.Right = (int)(rect.Right * scale);
-        rect.Bottom = (int)(rect.Bottom * scale);
+        rect.Left = (int)Math.Round(rect.Left * _scaleFactor);
+        rect.Top = (int)Math.Round(rect.Top * _scaleFactor);
+        rect.Right = (int)Math.Round(rect.Right * _scaleFactor);
+        rect.Bottom = (int)Math.Round(rect.Bottom * _scaleFactor);
 
         return rect;
     }
@@ -104,7 +105,6 @@ public static class WindowUtils
         Graphics graphics = Graphics.FromImage(bmp);
         IntPtr hdcBitmap = graphics.GetHdc();
         IntPtr hdcWindow = GetWindowDC(hWnd);
-
         BitBlt(hdcBitmap, 0, 0, width, height, hdcWindow, left, top, 0x00CC0020);
 
         graphics.ReleaseHdc(hdcBitmap);

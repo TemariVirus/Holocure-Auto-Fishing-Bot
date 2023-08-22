@@ -2,42 +2,44 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 
-public readonly struct RGBAColor
+public readonly struct ARGBColor
 {
+    public byte A { get; }
     public byte R { get; }
     public byte G { get; }
     public byte B { get; }
-    public byte A { get; }
 
-    public RGBAColor(int red, int green, int blue, int alpha)
+    public ARGBColor(int alpha, int red, int green, int blue)
     {
 #if DEBUG
+        if (alpha < 0 || alpha > 255)
+            throw new ArgumentOutOfRangeException(nameof(alpha));
         if (red < 0 || red > 255)
             throw new ArgumentOutOfRangeException(nameof(red));
         if (green < 0 || green > 255)
             throw new ArgumentOutOfRangeException(nameof(green));
         if (blue < 0 || blue > 255)
             throw new ArgumentOutOfRangeException(nameof(blue));
-        if (alpha < 0 || alpha > 255)
-            throw new ArgumentOutOfRangeException(nameof(alpha));
 #endif
 
+        A = (byte)alpha;
         R = (byte)red;
         G = (byte)green;
         B = (byte)blue;
-        A = (byte)alpha;
     }
 
-    // public static implicit operator RGBAColor(Color color) =>
-    //     new RGBAColor(color.R, color.G, color.B, color.A);
-
-    public double ColorDiff(RGBAColor other)
+    public double ColorDiff(ARGBColor other)
     {
-        int dR = Math.Abs(R - (int)other.R);
-        int dG = Math.Abs(G - (int)other.G);
-        int dB = Math.Abs(B - (int)other.B);
+        int dR = Math.Abs(R - other.R);
+        int dG = Math.Abs(G - other.G);
+        int dB = Math.Abs(B - other.B);
         // Scale between 0 and 1
-        return (double)(dR + dG + dB) / 3 / 255;
+        return (double)(dR + dG + dB) / (3 * 255);
+    }
+
+    public override string ToString()
+    {
+        return $"R: {R}, G: {G}, B: {B}, A: {A}";
     }
 }
 
@@ -45,7 +47,7 @@ public sealed class Image2D
 {
     public int Width { get; }
     public int Height { get; }
-    private readonly RGBAColor[] _pixels;
+    private readonly ARGBColor[] _pixels;
 
     private int _opaqueCount = -1;
     public int OpaqueCount
@@ -55,7 +57,7 @@ public sealed class Image2D
             if (_opaqueCount == -1)
             {
                 _opaqueCount = 0;
-                foreach (RGBAColor pixel in _pixels)
+                foreach (ARGBColor pixel in _pixels)
                 {
                     if (pixel.A != 0)
                     {
@@ -67,7 +69,7 @@ public sealed class Image2D
         }
     }
 
-    public RGBAColor this[int x, int y]
+    public ARGBColor this[int x, int y]
     {
         get => _pixels[GetIndex(x, y)];
         set => _pixels[GetIndex(x, y)] = value;
@@ -77,7 +79,7 @@ public sealed class Image2D
     {
         Width = source.Width;
         Height = source.Height;
-        _pixels = new RGBAColor[Width * Height];
+        _pixels = new ARGBColor[Width * Height];
         CopyFromBitmap(source);
         source.Dispose();
     }
@@ -109,11 +111,11 @@ public sealed class Image2D
             {
                 for (int x = 0; x < data.Width; x++)
                 {
-                    this[x, y] = new RGBAColor(
-                        ptrCurrentRow[x * 3 + 3],
-                        ptrCurrentRow[x * 3 + 2],
-                        ptrCurrentRow[x * 3 + 1],
-                        ptrCurrentRow[x * 3]
+                    this[x, y] = new ARGBColor(
+                        ptrCurrentRow[x * 4 + 3],
+                        ptrCurrentRow[x * 4 + 2],
+                        ptrCurrentRow[x * 4 + 1],
+                        ptrCurrentRow[x * 4]
                     );
                 }
             }
@@ -122,10 +124,8 @@ public sealed class Image2D
         src.UnlockBits(data);
     }
 
-    public bool MaskedEquals(Image2D other, int left = 0, int top = 0, double threshold = 0.0069)
+    public bool MaskedEquals(Image2D other, int left = 0, int top = 0, double threshold = 0.02)
     {
-        double sum = 0;
-        threshold *= other.OpaqueCount;
         for (int i = 0; i < other.Width; i++)
         {
             for (int j = 0; j < other.Height; j++)
@@ -135,15 +135,15 @@ public sealed class Image2D
                     continue;
                 }
 
-                sum += this[left + i, top + j].ColorDiff(other[i, j]);
-                if (sum > threshold)
+                double diff = this[left + i, top + j].ColorDiff(other[i, j]);
+                if (diff >= threshold)
                 {
                     return false;
                 }
             }
         }
 
-        return sum <= threshold;
+        return true;
     }
 
     public bool MaskedContains(Image2D other)
@@ -178,10 +178,10 @@ public sealed class Image2D
     //             for (int x = 0; x < data.Width; x++)
     //             {
     //                 RGBAColor color = this[x, y];
-    //                 ptrCurrentRow[x * 3 + 3] = color.R;
-    //                 ptrCurrentRow[x * 3 + 2] = color.G;
-    //                 ptrCurrentRow[x * 3 + 1] = color.B;
-    //                 ptrCurrentRow[x * 3] = color.A;
+    //                 ptrCurrentRow[x * 4 + 3] = color.R;
+    //                 ptrCurrentRow[x * 4 + 2] = color.G;
+    //                 ptrCurrentRow[x * 4 + 1] = color.B;
+    //                 ptrCurrentRow[x * 4] = color.A;
     //             }
     //         }
     //     }
