@@ -15,7 +15,6 @@ static class Images
     public static readonly Image2D right = new Image2D("img/right.png");
     public static readonly Image2D up = new Image2D("img/up.png");
     public static readonly Image2D down = new Image2D("img/down.png");
-    public static readonly Image2D ok = new Image2D("img/ok.png");
 }
 
 static class Program
@@ -59,24 +58,44 @@ static class Program
         }
 
         Console.WriteLine("Bot started.");
-        int i = 0;
+        int capture_count = 0;
         Stopwatch sw = Stopwatch.StartNew();
+        Stopwatch note_timer = Stopwatch.StartNew();
+        bool playing = false;
         while (true)
         {
-            i++;
+            // Press enter twice to Start fishing game
+            if (!playing)
+            {
+                string key = settings.TheButtons[0];
+                Console.WriteLine($"Pressing {key}");
 
+                InputUtils.PressKey(hWnd, key);
+                Thread.Sleep(33);
+                InputUtils.ReleaseKey(hWnd, key);
+                Thread.Sleep(200);
+
+                Console.WriteLine($"Pressing {key}");
+                InputUtils.PressKey(hWnd, key);
+                Thread.Sleep(33);
+                InputUtils.ReleaseKey(hWnd, key);
+
+                note_timer.Restart();
+                playing = true;
+                continue;
+            }
+
+            capture_count++;
             if (sw.ElapsedMilliseconds >= 1000)
             {
-                Console.WriteLine($"FPS: {i / sw.Elapsed.TotalSeconds:F2}");
-                i = 0;
+                Console.WriteLine(
+                    $"Captures per second: {capture_count / sw.Elapsed.TotalSeconds:F2}"
+                );
+                capture_count = 0;
                 sw.Restart();
             }
 
-            // i = (i + 1) % 100;
-            // target_area.Save($"debug imgs/target_area_{i}.png");
-
             // Find note
-            bool note_found = false;
             Image2D target_area = CaptureTargetArea();
             foreach (var pair in note_map)
             {
@@ -90,41 +109,18 @@ static class Program
                     // Wait until game updates to release key
                     do
                     {
-                        Thread.Sleep(1);
                         target_area = CaptureTargetArea();
                     } while (target_area.MaskedContains(img));
                     InputUtils.ReleaseKey(hWnd, key);
 
-                    note_found = true;
                     break;
                 }
             }
-            if (note_found)
-            {
-                continue;
-            }
 
-            // Check for ok button
-            Image2D ok_area = CaptureOkButton();
-            if (ok_area.MaskedEquals(Images.ok))
+            if (note_timer.ElapsedMilliseconds >= 2000)
             {
-                string key = settings.TheButtons[0];
-                Console.WriteLine($"Pressing {key}");
-                InputUtils.PressKey(hWnd, key);
-                // Wait until game updates to release key
-                do
-                {
-                    Thread.Sleep(1);
-                    ok_area = CaptureTargetArea();
-                } while (ok_area.MaskedContains(Images.ok));
-                InputUtils.ReleaseKey(hWnd, key);
-                Thread.Sleep(67);
-
-                Console.WriteLine($"Pressing {key}");
-                InputUtils.PressKey(hWnd, key);
-                Thread.Sleep(33);
-                InputUtils.ReleaseKey(hWnd, key);
-                Thread.Sleep(1000);
+                playing = false;
+                note_timer.Restart();
             }
         }
 
@@ -132,8 +128,6 @@ static class Program
         Image2D CaptureTargetArea() => CaptureWindow(hWnd, 384, 280, 38, 21);
         // Desktop on 100% scale
         // Image2D CaptureTargetArea() => CaptureWindow(hWnd, 383, 273, 36, 21);
-        // Laptop on 125% scale
-        Image2D CaptureOkButton() => CaptureWindow(hWnd, 323, 299, 15, 9);
     }
 
     private static void CrashHandler(object sender, UnhandledExceptionEventArgs args)
