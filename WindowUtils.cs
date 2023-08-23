@@ -45,26 +45,15 @@ public static class WindowUtils
     // https://stackoverflow.com/a/21450169
     private static double GetScalingFactor()
     {
-        const int VERTRES = 10;
-        const int DESKTOPVERTRES = 117;
+        const int VERT_RES = 10;
+        const int DESKTOP_VERT_RES = 117;
 
         Graphics g = Graphics.FromHwnd(IntPtr.Zero);
         IntPtr desktop = g.GetHdc();
-        double logical_height = GetDeviceCaps(desktop, VERTRES);
-        double physical_height = GetDeviceCaps(desktop, DESKTOPVERTRES);
+        double logicalHeight = GetDeviceCaps(desktop, VERT_RES);
+        double physicalHeight = GetDeviceCaps(desktop, DESKTOP_VERT_RES);
 
-        return physical_height / logical_height;
-    }
-
-    public static IntPtr GetHolocureWindow()
-    {
-        Process[] processes = Process.GetProcessesByName("holocure");
-        if (processes.Length <= 0)
-        {
-            throw new Exception("Please open HoloCure.");
-        }
-
-        return processes[0].MainWindowHandle;
+        return physicalHeight / logicalHeight;
     }
 
     private static Rect GetWindowRectUnscaled(IntPtr hWnd)
@@ -80,7 +69,7 @@ public static class WindowUtils
         return rect;
     }
 
-    public static Image2D CaptureWindow(
+    public static ReadonlyImage CaptureWindow(
         IntPtr hWnd,
         int left = 0,
         int top = 0,
@@ -110,6 +99,6 @@ public static class WindowUtils
         graphics.ReleaseHdc(hdcBitmap);
         ReleaseDC(hWnd, hdcWindow);
 
-        return new Image2D(bmp);
+        return new ReadonlyImage(bmp);
     }
 }

@@ -32,31 +32,11 @@ public readonly struct ARGBColor
     }
 }
 
-public sealed class Image2D
+public sealed class ReadonlyImage
 {
     public int Width { get; }
     public int Height { get; }
     private readonly ARGBColor[] _pixels;
-
-    private int _opaqueCount = -1;
-    public int OpaqueCount
-    {
-        get
-        {
-            if (_opaqueCount == -1)
-            {
-                _opaqueCount = 0;
-                foreach (ARGBColor pixel in _pixels)
-                {
-                    if (pixel.A != 0)
-                    {
-                        _opaqueCount++;
-                    }
-                }
-            }
-            return _opaqueCount;
-        }
-    }
 
     public ARGBColor this[int x, int y]
     {
@@ -64,7 +44,7 @@ public sealed class Image2D
         set => _pixels[y * Width + x] = value;
     }
 
-    public Image2D(Bitmap source)
+    public ReadonlyImage(Bitmap source)
     {
         Width = source.Width;
         Height = source.Height;
@@ -73,7 +53,7 @@ public sealed class Image2D
         source.Dispose();
     }
 
-    public Image2D(string filename)
+    public ReadonlyImage(string filename)
         : this(new Bitmap(filename)) { }
 
     private void CopyFromBitmap(Bitmap src)
@@ -103,7 +83,7 @@ public sealed class Image2D
         src.UnlockBits(data);
     }
 
-    public bool CroppedEquals(Image2D other, int left = 0, int top = 0, double threshold = 0.108)
+    public bool CroppedEquals(ReadonlyImage other, int left = 0, int top = 0, double threshold = 0.108)
     {
         for (int i = 0; i < other.Width; i++)
         {
@@ -125,7 +105,7 @@ public sealed class Image2D
         return true;
     }
 
-    public (int x, int y) Find(Image2D other)
+    public (int x, int y) Find(ReadonlyImage other)
     {
         for (int x = 0; x <= Width - other.Width; x++)
         {

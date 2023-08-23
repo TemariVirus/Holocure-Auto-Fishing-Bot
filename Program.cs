@@ -4,18 +4,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Windows;
 using static WindowUtils;
-
-internal static class Images
-{
-    public static readonly Image2D Target = new Image2D("img/target circle.png");
-
-    public static readonly Image2D Circle = new Image2D("img/circle.png");
-    public static readonly Image2D Left = new Image2D("img/left.png");
-    public static readonly Image2D Right = new Image2D("img/right.png");
-    public static readonly Image2D Up = new Image2D("img/up.png");
-    public static readonly Image2D Down = new Image2D("img/down.png");
-}
 
 internal struct Settings
 {
@@ -26,42 +16,55 @@ internal struct Settings
 
 static class Program
 {
-    public static Settings Settings { get; }
+    private static readonly ReadonlyImage _targetImage = new ReadonlyImage("img/target circle.png");
+    private static readonly ReadonlyImage _okImage = new ReadonlyImage("img/ok.png");
+    private static readonly ReadonlyImage _cImage = new ReadonlyImage("img/c.png");
+    private static readonly Note[] _notes;
+
+    private static readonly Settings _settings;
 
     private static readonly IntPtr _windowHandle;
     private static int _targetLeft = -1;
     private static int _targetTop = -1;
-    private static readonly Stopwatch _noteTimer = new Stopwatch();
 
     static Program()
     {
         // Keep console open on crash
         AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(
-            CrashHandler
+            ExceptionHandler
         );
 
         // Setup
         try
         {
-            Settings = GetHolocureSettings();
+            _settings = GetHolocureSettings();
             Console.WriteLine("Holocure settings found.");
-            Console.WriteLine($"Buttons: [{string.Join(", ", Settings.TheButtons)}]");
+            Console.WriteLine($"Buttons: [{string.Join(", ", _settings.TheButtons)}]");
 
             _windowHandle = GetHolocureWindow();
             Console.WriteLine("Holocure window found.");
 
-            if (Settings.Fullscreen)
+            if (_settings.Fullscreen)
             {
                 throw new Exception("Please turn off fullscreen.");
             }
-            if (Settings.Resolution != 0.0)
+            if (_settings.Resolution != 0.0)
             {
                 throw new Exception("Please set resolution to 640x360.");
             }
+
+            _notes = new Note[] {
+                    new Note(new ReadonlyImage("img/circle.png"), _settings.TheButtons[0], 5, 15, 30, 32),
+                    new Note(new ReadonlyImage("img/left.png"), _settings.TheButtons[2], 2, 14, 32, 33),
+                    new Note(new ReadonlyImage("img/right.png"), _settings.TheButtons[3], 2, 14, 32, 33),
+                    new Note(new ReadonlyImage("img/up.png"), _settings.TheButtons[4], 3, 13, 31, 34),
+                    new Note(new ReadonlyImage("img/down.png"), _settings.TheButtons[5], 3, 13, 31, 34)
+                };
         }
         catch (Exception e)
         {
-            CrashHandler(null, new UnhandledExceptionEventArgs(e, false));
+            // Manually call exception handler as it has not been set yet
+            ExceptionHandler(null, new UnhandledExceptionEventArgs(e, false));
         }
     }
 
@@ -72,27 +75,28 @@ static class Program
             "Please ensure that the minigame is within view at all times (you can still have other windows on top of it).\n"
         );
         // Start bot loop
-        int capture_count = 0;
         bool playing = false;
-        Stopwatch perf_sw = Stopwatch.StartNew();
-        _noteTimer.Restart();
+        int captureCount = 0;
+        int chain = 0;
+        Stopwatch perfSw = Stopwatch.StartNew();
+        Stopwatch timeoutSw = Stopwatch.StartNew();
         while (true)
         {
             if (!playing)
             {
-                perf_sw.Stop();
+                perfSw.Stop();
 
                 StartFishingGame();
-                _noteTimer.Restart();
+                timeoutSw.Restart();
                 playing = true;
 
-                perf_sw.Start();
+                perfSw.Start();
                 continue;
             }
 
             if (_targetLeft >= 0 && _targetTop >= 0)
             {
-                PlayFishingGame();
+                PlayFishingGame(ref playing, ref chain, in timeoutSw);
             }
             else
             {
@@ -100,32 +104,35 @@ static class Program
             }
 
             // Aim for a little over 60 captures per second to match framerate
-            while (capture_count / perf_sw.Elapsed.TotalSeconds > 69)
+            while (captureCount / perfSw.Elapsed.TotalSeconds > 69)
             {
                 Thread.Sleep(1);
             }
 
             // Print captures per second
-            capture_count++;
-            if (perf_sw.ElapsedMilliseconds >= 1000)
+            captureCount++;
+            if (perfSw.ElapsedMilliseconds >= 1000)
             {
                 Console.WriteLine(
-                    $"Captures per second: {capture_count / perf_sw.Elapsed.TotalSeconds:F2}"
+                    $"Captures per second: {captureCount / perfSw.Elapsed.TotalSeconds:F2}"
                 );
-                capture_count = 0;
-                perf_sw.Restart();
+                captureCount = 0;
+                perfSw.Restart();
             }
 
             // If no notes for too long, restart
-            if (_noteTimer.ElapsedMilliseconds >= 1222)
+            if (timeoutSw.ElapsedMilliseconds >= 30_000)
             {
+                Console.WriteLine("No notes detected in 30 seconds. Attempting to restart minigame.");
+                Console.WriteLine($"Chain broke at {chain}.");
                 playing = false;
-                _noteTimer.Restart();
+                chain = 0;
+                timeoutSw.Restart();
             }
         }
     }
 
-    private static void CrashHandler(object sender, UnhandledExceptionEventArgs args)
+    private static void ExceptionHandler(object sender, UnhandledExceptionEventArgs args)
     {
         Console.WriteLine($"\n{args.ExceptionObject}\n\nPress any key to exit.");
         Console.ReadKey();
@@ -134,17 +141,28 @@ static class Program
 
     private static Settings GetHolocureSettings()
     {
-        string user_path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        string file_path = $"{user_path}\\AppData\\Local\\HoloCure\\settings.json";
-        if (!File.Exists(file_path))
+        string userPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        string filePath = $"{userPath}\\AppData\\Local\\HoloCure\\settings.json";
+        if (!File.Exists(filePath))
         {
             throw new FileNotFoundException(
                 "Settings file not found. HoloCure may not be installed."
             );
         }
 
-        string json_text = File.ReadAllText(file_path);
-        return JsonConvert.DeserializeObject<Settings>(json_text);
+        string jsonText = File.ReadAllText(filePath);
+        return JsonConvert.DeserializeObject<Settings>(jsonText);
+    }
+
+    public static IntPtr GetHolocureWindow()
+    {
+        Process[] processes = Process.GetProcessesByName("holocure");
+        if (processes.Length <= 0)
+        {
+            throw new Exception("Please open HoloCure.");
+        }
+
+        return processes[0].MainWindowHandle;
     }
 
     private static void StartFishingGame()
@@ -157,28 +175,60 @@ static class Program
         }
     }
 
-    private static void PlayFishingGame()
+    private static void PlayFishingGame(ref bool playing, ref int chain, in Stopwatch timeoutSw)
     {
-        int right = Note.Notes.Max(note => note.Right);
-        int bottom = Note.Notes.Max(note => note.Bottom);
+        int right = _notes.Max(note => note.Right);
+        int bottom = _notes.Max(note => note.Bottom);
 
-        Image2D target_area = CaptureWindow(_windowHandle, _targetLeft, _targetTop, right, bottom);
-        foreach (Note note in Note.Notes)
+        bool noteFound = false;
+        ReadonlyImage targetArea = CaptureWindow(_windowHandle, _targetLeft, _targetTop, right, bottom);
+        foreach (Note note in _notes)
         {
-            if (target_area.ContainsNote(note))
+            if (targetArea.ContainsNote(note))
             {
                 Console.WriteLine($"Pressing {note.Button}");
                 InputUtils.SendKey(_windowHandle, note.Button);
-                _noteTimer.Restart();
+                noteFound = true;
                 break;
             }
+        }
+
+        if (noteFound)
+        {
+            timeoutSw.Restart();
+        }
+        else
+        {
+            CheckGameFisished(ref playing, ref chain);
+        }
+    }
+
+    private static void CheckGameFisished(ref bool playing, ref int chain)
+    {
+        ReadonlyImage okArea = CaptureWindow(_windowHandle, _targetLeft - 63, _targetTop + 32, 11, 9);
+        if (!okArea.CroppedEquals(_okImage))
+        {
+            return;
+        }
+        playing = false;
+
+        // Check if caught sucessfully
+        ReadonlyImage caughtArea = CaptureWindow(_windowHandle, _targetLeft - 100, _targetTop - 107, 12, 12);
+        if (caughtArea.CroppedEquals(_cImage))
+        {
+            chain++;
+        }
+        else
+        {
+            Console.WriteLine($"Chain broke at {chain}.");
+            chain = 0;
         }
     }
 
     private static void FindTargetArea()
     {
-        Image2D screen = CaptureWindow(_windowHandle);
-        (_targetLeft, _targetTop) = screen.Find(Images.Target);
+        ReadonlyImage screen = CaptureWindow(_windowHandle);
+        (_targetLeft, _targetTop) = screen.Find(_targetImage);
         if (_targetLeft >= 0 && _targetTop >= 0)
         {
             Console.WriteLine($"Target area found: X={_targetLeft}, Y={_targetTop}");
