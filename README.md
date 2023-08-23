@@ -14,6 +14,12 @@ Currently the bot achieves nearly 100% accuracy, and uses very little CPU resour
 6. If you get a warning from Windows Defender, click on "More info" and then "Run anyway". / Windows Defender から警告が出たら、「詳細情報」をクリックしてから「実行」をクリックしてください。
 7. Happy fishing! / 楽しい釣りを！
 
+## FAQ
+
+### The bot only presses ENTER and misses everything.
+
+This is likely a problem with DirectX hardware acceleration. As a workaround, open settings, and navigate to System > Display > Graphics (settings). Then, disable both "Optimizations for windowed games" and "Variable refresh rate". I'm currently working on a fix for this.
+
 ## Dependencies
 
 This project only requires the .NET 4.8 runtime, which has come shipped with Windows since... a long time ago. If you don't have it for some reason, you can download it [here](https://dotnet.microsoft.com/en-us/download/dotnet-framework/thank-you/net48-web-installer). If HoloCure becomes cross-platform I'll look into possibly changing the .NET version so that the bot is cross-platform as well.
