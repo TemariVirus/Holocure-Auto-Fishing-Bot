@@ -6,7 +6,7 @@ Currently the bot achieves nearly 100% accuracy, and uses very little CPU resour
 
 ## How to use / 使い方
 
-1. Download Holocure.Auto.Fishing.Bot.zip from the [releases][placeholder](https://github.com/Zemogus/Holocure-Auto-Fishing-Bot/releases) page. / [リリース][placeholder](https://github.com/Zemogus/Holocure-Auto-Fishing-Bot/releases)からHolocure.Auto.Fishing.Bot.zipをダウンロードしてください。
+1. Download Holocure.Auto.Fishing.Bot.zip from the [releases](https://github.com/Zemogus/Holocure-Auto-Fishing-Bot/releases/latest) page. / [リリース](https://github.com/Zemogus/Holocure-Auto-Fishing-Bot/releases/latest)からHolocure.Auto.Fishing.Bot.zipをダウンロードしてください。
 2. Unzip the downloaded file / ダウンロードしたファイルを解凍してください。
 3. Run HoloCure. / HoloCure を起動してください。
 4. Stand next to the pond so that you can fish. / 池のすぐそばに立ってください。
