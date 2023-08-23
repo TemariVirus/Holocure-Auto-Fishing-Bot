@@ -103,7 +103,7 @@ public sealed class Image2D
         src.UnlockBits(data);
     }
 
-    public bool CroppedEquals(Image2D other, int left = 0, int top = 0, double threshold = 0.0563)
+    public bool CroppedEquals(Image2D other, int left = 0, int top = 0, double threshold = 0.108)
     {
         for (int i = 0; i < other.Width; i++)
         {
