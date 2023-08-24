@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -24,7 +25,9 @@ static class Program
 {
     private static readonly ReadonlyImage _targetImage = new ReadonlyImage("img/target circle.png");
     private static readonly ReadonlyImage _okImage = new ReadonlyImage("img/ok.png");
-    private static readonly ReadonlyImage _cImage = new ReadonlyImage("img/c.png");
+    private static readonly ReadonlyImage _caughtImageEn = new ReadonlyImage("img/caught_en.png");
+    private static readonly ReadonlyImage _caughtImageJp = new ReadonlyImage("img/caught_jp.png");
+    private static readonly ReadonlyImage _caughtImageId = new ReadonlyImage("img/caught_id.png");
     private static readonly Note[] _notes;
 
     private static readonly Settings _settings;
@@ -32,6 +35,9 @@ static class Program
     private static readonly IntPtr _windowHandle;
     private static int _targetLeft = -1;
     private static int _targetTop = -1;
+
+    private static readonly bool _jpMode =
+        CultureInfo.CurrentCulture.ThreeLetterISOLanguageName.ToLower() == "jpn";
 
     static Program()
     {
@@ -44,40 +50,39 @@ static class Program
         try
         {
             _settings = GetHolocureSettings();
-            Console.WriteLine("Holocure settings found.");
-            Console.WriteLine($"Buttons: [{string.Join(", ", _settings.Buttons)}]");
+            Console.WriteLine(
+                _jpMode ? "HoloCure settei ga mitukarimasita." : "Holocure settings found."
+            );
+            Console.WriteLine(
+                (_jpMode ? "ki-baindo: " : "Buttons: ")
+                    + $"[{string.Join(", ", _settings.Buttons)}]"
+            );
 
             _windowHandle = GetHolocureWindow();
-            Console.WriteLine("Holocure window found.");
+            Console.WriteLine(
+                _jpMode ? "HoloCure no mado ga mitukarimasita." : "Holocure window found."
+            );
 
             if (_settings.IsFullscreen)
             {
-                throw new Exception("Please turn off fullscreen.");
+                throw new Exception(
+                    _jpMode ? "furusukuri-n wo ofu ni site kudasai." : "Please turn off fullscreen."
+                );
             }
             if (_settings.Resolution != 0.0)
             {
-                throw new Exception("Please set resolution to 640x360.");
+                throw new Exception(
+                    _jpMode
+                        ? "kaizoudo wo 640 x 360 ni site kudasai."
+                        : "Please set resolution to 640 x 360."
+                );
             }
 
             _notes = new Note[]
             {
-                new Note(
-                    new ReadonlyImage("img/circle.png"),
-                    _settings.Buttons[0],
-                    5,
-                    15,
-                    30,
-                    32
-                ),
+                new Note(new ReadonlyImage("img/circle.png"), _settings.Buttons[0], 5, 15, 30, 32),
                 new Note(new ReadonlyImage("img/left.png"), _settings.Buttons[2], 2, 14, 32, 33),
-                new Note(
-                    new ReadonlyImage("img/right.png"),
-                    _settings.Buttons[3],
-                    2,
-                    14,
-                    32,
-                    33
-                ),
+                new Note(new ReadonlyImage("img/right.png"), _settings.Buttons[3], 2, 14, 32, 33),
                 new Note(new ReadonlyImage("img/up.png"), _settings.Buttons[4], 3, 13, 31, 34),
                 new Note(new ReadonlyImage("img/down.png"), _settings.Buttons[5], 3, 13, 31, 34)
             };
@@ -91,9 +96,11 @@ static class Program
 
     static void Main()
     {
-        Console.WriteLine("Bot started.");
+        Console.WriteLine(_jpMode ? "botto wo kidou simasita" : "Bot started.");
         Console.WriteLine(
-            "Please ensure that the minigame is within view at all times (you can still have other windows on top of it).\n"
+            _jpMode
+                ? "minige-mu ga gamengai ni denai you ni site kudasai (hoka no mado ni kaburarete mo daijoubu desu).\n"
+                : "Please ensure that the minigame is within view at all times (you can still have other windows on top of it).\n"
         );
         // Start bot loop
         bool playing = false;
@@ -145,11 +152,12 @@ static class Program
             if (timeoutSw.ElapsedMilliseconds >= 30_000)
             {
                 Console.WriteLine(
-                    "No notes detected in 30 seconds. Attempting to restart minigame."
+                    _jpMode
+                        ? "30byou inai ni no-tu ga mitukarimasen desita. minige-mu wo saikidou siyou to simasu."
+                        : "No notes detected in 30 seconds. Attempting to restart minigame."
                 );
-                Console.WriteLine($"Chain broke at {chain}.");
+                ResetChain(ref chain);
                 playing = false;
-                chain = 0;
                 timeoutSw.Restart();
             }
         }
@@ -157,7 +165,10 @@ static class Program
 
     private static void ExceptionHandler(object sender, UnhandledExceptionEventArgs args)
     {
-        Console.WriteLine($"\n{args.ExceptionObject}\n\nPress any key to exit.");
+        Console.WriteLine(
+            $"\n{args.ExceptionObject}\n\n"
+                + (_jpMode ? "ki- wo osite syuuryou." : "Press any key to exit.")
+        );
         Console.ReadKey();
         Environment.Exit(1);
     }
@@ -169,7 +180,7 @@ static class Program
         if (!File.Exists(filePath))
         {
             throw new FileNotFoundException(
-                "Settings file not found. HoloCure may not be installed."
+                _jpMode ? "settei fairu ga mitukarimasen desita." : "Settings file not found."
             );
         }
 
@@ -179,7 +190,9 @@ static class Program
         if (!buttonsMatch.Success)
         {
             throw new Exception(
-                $"{filePath} was not formatted correctly. Could not find key bindings."
+                _jpMode
+                    ? "settei fairu ni ki-baindo ga mitukarimasen desita."
+                    : "settings.json was not formatted correctly. Could not find key bindings."
             );
         }
         string[] buttons = buttonsMatch.Groups[1].Value
@@ -191,7 +204,9 @@ static class Program
         if (!resMatch.Success)
         {
             throw new Exception(
-                $"{filePath} was not formatted correctly. Could not find resolution setting."
+                _jpMode
+                    ? "settei fairu ni kaizoudo ga mitukarimasen desita."
+                    : "settings.json was not formatted correctly. Could not find resolution setting."
             );
         }
         double resolution = double.Parse(resMatch.Groups[1].Value);
@@ -200,7 +215,9 @@ static class Program
         if (!fullscreenMatch.Success)
         {
             throw new Exception(
-                $"{filePath} was not formatted correctly. Could not find fullscreen setting."
+                _jpMode
+                    ? "settei fairu ni furusukuri-n settei ga mitukarimasen desita."
+                    : "settings.json was not formatted correctly. Could not find fullscreen setting."
             );
         }
         bool isFullscreenNum = double.TryParse(
@@ -219,7 +236,9 @@ static class Program
         Process[] processes = Process.GetProcessesByName("holocure");
         if (processes.Length <= 0)
         {
-            throw new Exception("Please open HoloCure.");
+            throw new Exception(
+                _jpMode ? "HoloCure wo kidou site kudasai." : "Please open HoloCure."
+            );
         }
 
         return processes[0].MainWindowHandle;
@@ -227,10 +246,12 @@ static class Program
 
     private static void StartFishingGame()
     {
+        const string KEY = "ENTER";
+
         for (int i = 0; i < 2; i++)
         {
-            Console.WriteLine($"Pressing ENTER");
-            InputUtils.SendKey(_windowHandle, "ENTER");
+            Console.WriteLine($"Pressing {KEY}");
+            InputUtils.SendKey(_windowHandle, KEY);
             Thread.Sleep(150);
         }
     }
@@ -287,20 +308,31 @@ static class Program
         // Check if caught sucessfully
         ReadonlyImage caughtArea = CaptureWindow(
             _windowHandle,
-            _targetLeft - 100,
+            _targetLeft - 94,
             _targetTop - 107,
-            12,
-            12
+            10,
+            10
         );
-        if (caughtArea.CroppedEquals(_cImage))
+        if (
+            caughtArea.CroppedEquals(_caughtImageEn)
+            || caughtArea.CroppedEquals(_caughtImageJp)
+            || caughtArea.CroppedEquals(_caughtImageId)
+        )
         {
             chain++;
         }
         else
         {
-            Console.WriteLine($"Chain broke at {chain}.");
-            chain = 0;
+            ResetChain(ref chain);
         }
+    }
+
+    private static void ResetChain(ref int chain)
+    {
+        Console.WriteLine(
+            _jpMode ? $"saidai konbo ha {chain} desita." : $"Chain broke at {chain}."
+        );
+        chain = 0;
     }
 
     private static void FindTargetArea()
@@ -309,7 +341,11 @@ static class Program
         (_targetLeft, _targetTop) = screen.Find(_targetImage);
         if (_targetLeft >= 0 && _targetTop >= 0)
         {
-            Console.WriteLine($"Target area found: X={_targetLeft}, Y={_targetTop}");
+            Console.WriteLine(
+                _jpMode
+                    ? $"ta-getto ga mitukarimasita: X={_targetLeft}, Y={_targetTop}"
+                    : $"Target area found: X={_targetLeft}, Y={_targetTop}"
+            );
         }
     }
 }
