@@ -83,7 +83,12 @@ public sealed class ReadonlyImage
         src.UnlockBits(data);
     }
 
-    public bool CroppedEquals(ReadonlyImage other, int left = 0, int top = 0, double threshold = 0.108)
+    public bool CroppedEquals(
+        ReadonlyImage other,
+        int left = 0,
+        int top = 0,
+        double threshold = 0.108
+    )
     {
         for (int i = 0; i < other.Width; i++)
         {

@@ -1,17 +1,23 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
-using System.Windows;
 using static WindowUtils;
 
-internal struct Settings
+internal readonly struct Settings
 {
-    public double Resolution { get; set; }
-    public string[] TheButtons { get; set; }
-    public bool Fullscreen { get; set; }
+    public string[] Buttons { get; }
+    public double Resolution { get; }
+    public bool IsFullscreen { get; }
+
+    public Settings(string[] buttons, double resolution, bool fullscreen)
+    {
+        Buttons = buttons;
+        Resolution = resolution;
+        IsFullscreen = fullscreen;
+    }
 }
 
 static class Program
@@ -39,12 +45,12 @@ static class Program
         {
             _settings = GetHolocureSettings();
             Console.WriteLine("Holocure settings found.");
-            Console.WriteLine($"Buttons: [{string.Join(", ", _settings.TheButtons)}]");
+            Console.WriteLine($"Buttons: [{string.Join(", ", _settings.Buttons)}]");
 
             _windowHandle = GetHolocureWindow();
             Console.WriteLine("Holocure window found.");
 
-            if (_settings.Fullscreen)
+            if (_settings.IsFullscreen)
             {
                 throw new Exception("Please turn off fullscreen.");
             }
@@ -53,13 +59,28 @@ static class Program
                 throw new Exception("Please set resolution to 640x360.");
             }
 
-            _notes = new Note[] {
-                    new Note(new ReadonlyImage("img/circle.png"), _settings.TheButtons[0], 5, 15, 30, 32),
-                    new Note(new ReadonlyImage("img/left.png"), _settings.TheButtons[2], 2, 14, 32, 33),
-                    new Note(new ReadonlyImage("img/right.png"), _settings.TheButtons[3], 2, 14, 32, 33),
-                    new Note(new ReadonlyImage("img/up.png"), _settings.TheButtons[4], 3, 13, 31, 34),
-                    new Note(new ReadonlyImage("img/down.png"), _settings.TheButtons[5], 3, 13, 31, 34)
-                };
+            _notes = new Note[]
+            {
+                new Note(
+                    new ReadonlyImage("img/circle.png"),
+                    _settings.Buttons[0],
+                    5,
+                    15,
+                    30,
+                    32
+                ),
+                new Note(new ReadonlyImage("img/left.png"), _settings.Buttons[2], 2, 14, 32, 33),
+                new Note(
+                    new ReadonlyImage("img/right.png"),
+                    _settings.Buttons[3],
+                    2,
+                    14,
+                    32,
+                    33
+                ),
+                new Note(new ReadonlyImage("img/up.png"), _settings.Buttons[4], 3, 13, 31, 34),
+                new Note(new ReadonlyImage("img/down.png"), _settings.Buttons[5], 3, 13, 31, 34)
+            };
         }
         catch (Exception e)
         {
@@ -123,7 +144,9 @@ static class Program
             // If no notes for too long, restart
             if (timeoutSw.ElapsedMilliseconds >= 30_000)
             {
-                Console.WriteLine("No notes detected in 30 seconds. Attempting to restart minigame.");
+                Console.WriteLine(
+                    "No notes detected in 30 seconds. Attempting to restart minigame."
+                );
                 Console.WriteLine($"Chain broke at {chain}.");
                 playing = false;
                 chain = 0;
@@ -151,7 +174,44 @@ static class Program
         }
 
         string jsonText = File.ReadAllText(filePath);
-        return JsonConvert.DeserializeObject<Settings>(jsonText);
+
+        Match buttonsMatch = Regex.Match(jsonText, @"""theButtons"":\[(""\w+""(,""\w+""){5})\]");
+        if (!buttonsMatch.Success)
+        {
+            throw new Exception(
+                $"{filePath} was not formatted correctly. Could not find key bindings."
+            );
+        }
+        string[] buttons = buttonsMatch.Groups[1].Value
+            .Split(',')
+            .Select(s => s.Trim(' ', '"'))
+            .ToArray();
+
+        Match resMatch = Regex.Match(jsonText, @"""Resolution"":(\d+\.\d+|\d+)");
+        if (!resMatch.Success)
+        {
+            throw new Exception(
+                $"{filePath} was not formatted correctly. Could not find resolution setting."
+            );
+        }
+        double resolution = double.Parse(resMatch.Groups[1].Value);
+
+        Match fullscreenMatch = Regex.Match(jsonText, @"""fullscreen"":(\d+\.\d+|\d+|true|false)");
+        if (!fullscreenMatch.Success)
+        {
+            throw new Exception(
+                $"{filePath} was not formatted correctly. Could not find fullscreen setting."
+            );
+        }
+        bool isFullscreenNum = double.TryParse(
+            fullscreenMatch.Groups[1].Value,
+            out double fullscreenNum
+        );
+        bool fullscreen = isFullscreenNum
+            ? fullscreenNum != 0.0
+            : bool.Parse(fullscreenMatch.Groups[1].Value);
+
+        return new Settings(buttons, resolution, fullscreen);
     }
 
     public static IntPtr GetHolocureWindow()
@@ -181,7 +241,13 @@ static class Program
         int bottom = _notes.Max(note => note.Bottom);
 
         bool noteFound = false;
-        ReadonlyImage targetArea = CaptureWindow(_windowHandle, _targetLeft, _targetTop, right, bottom);
+        ReadonlyImage targetArea = CaptureWindow(
+            _windowHandle,
+            _targetLeft,
+            _targetTop,
+            right,
+            bottom
+        );
         foreach (Note note in _notes)
         {
             if (targetArea.ContainsNote(note))
@@ -205,7 +271,13 @@ static class Program
 
     private static void CheckGameFisished(ref bool playing, ref int chain)
     {
-        ReadonlyImage okArea = CaptureWindow(_windowHandle, _targetLeft - 63, _targetTop + 32, 11, 9);
+        ReadonlyImage okArea = CaptureWindow(
+            _windowHandle,
+            _targetLeft - 63,
+            _targetTop + 32,
+            11,
+            9
+        );
         if (!okArea.CroppedEquals(_okImage))
         {
             return;
@@ -213,7 +285,13 @@ static class Program
         playing = false;
 
         // Check if caught sucessfully
-        ReadonlyImage caughtArea = CaptureWindow(_windowHandle, _targetLeft - 100, _targetTop - 107, 12, 12);
+        ReadonlyImage caughtArea = CaptureWindow(
+            _windowHandle,
+            _targetLeft - 100,
+            _targetTop - 107,
+            12,
+            12
+        );
         if (caughtArea.CroppedEquals(_cImage))
         {
             chain++;
