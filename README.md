@@ -18,7 +18,7 @@ Currently the bot achieves nearly 100% accuracy, and uses very little CPU resour
 
 ### The bot only presses ENTER and misses everything.
 
-This is likely a problem with DirectX hardware acceleration. As a workaround, open settings, and navigate to System > Display > Graphics (settings). Then, disable both "Optimizations for windowed games" and "Variable refresh rate". I'm currently working on a fix for this.
+This is likely a problem with DirectX hardware acceleration. As a workaround, open settings, and navigate to System > Display > Graphics. Then, disable "Optimizations for windowed games", "Variable refresh rate" and "Auto HDR". I'm currently working on a fix for this. ([More information about "Optimizations for windowed games"](https://support.microsoft.com/en-us/windows/optimizations-for-windowed-games-in-windows-11-3f006843-2c7e-4ed0-9a5e-f9389e535952))
 
 ## Dependencies
 
