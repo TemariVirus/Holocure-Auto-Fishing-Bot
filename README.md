@@ -18,7 +18,11 @@ Currently the bot is practically 100% accurate, and uses very little CPU resourc
 
 ### The bot only presses ENTER and misses everything. / ボットは ENTER キーしか押さず、何も釣れません。
 
+Try running the bot as administrator. If that doesn't work, follow the steps below.
+
 This is likely a problem with DirectX hardware acceleration. As a workaround, open settings, and navigate to System > Display > Graphics. Then, disable "Optimizations for windowed games", "Variable refresh rate" and "Auto HDR". I'm currently working on a fix for this. ([More information about "Optimizations for windowed games"](https://support.microsoft.com/en-us/windows/optimizations-for-windowed-games-in-windows-11-3f006843-2c7e-4ed0-9a5e-f9389e535952))
+
+ボットを管理者として実行してみてください。無効の場合は、以下の方法を試してください。
 
 これは DirectX のハードウェアアクセラレーションに関する問題はず。回避策として、設定で、システム > 表示 > グラフィックス > 既定のグラフィックス設定を変更する を選択してください。そして、「ウィンドウゲームの最適化」、「可変リフレッシュレート」、「自動 HDR」をオフにしてください。現在は、修正に取り組んでいます。お待ちしてくれたら幸いです。（[「ウィンドウゲームの最適化」の詳細情報](https://support.microsoft.com/ja-jp/windows/windows-11でのウィンドウ-ゲームの最適化-3f006843-2c7e-4ed0-9a5e-f9389e535952)）
 
