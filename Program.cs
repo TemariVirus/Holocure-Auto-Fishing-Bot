@@ -27,7 +27,7 @@ static partial class Program
     private static readonly ReadonlyImage _targetImage = new ReadonlyImage("img/target circle.png");
     private static readonly ReadonlyImage _okImage = new ReadonlyImage("img/ok.png");
 
-    private static readonly Note[] _notes;
+    private static Note[] _notes;
 
     private static readonly Settings _settings;
     private static int _resolution;
@@ -41,7 +41,7 @@ static partial class Program
 
     private static readonly bool _jpMode =
         CultureInfo.CurrentCulture.ThreeLetterISOLanguageName.ToLower() == "jpn";
-    private static readonly bool _hardwareAccelerated;
+    private static bool _hardwareAccelerated = false;
 
     static Program()
     {
@@ -86,79 +86,14 @@ static partial class Program
                     : $"Detected HoloCure resolution: {res}"
             );
 
-            _hardwareAccelerated = false;
-            // Bring HoloCure window to front
-            SetForegroundWindow(_windowHandle);
-            Thread.Sleep(100);
-            // Check for hardware acceleration or full screen
-            _hardwareAccelerated = CaptureHolocureWindow(80, 80, 20, 20)
-                .ToArray()
-                .All(c => c.R + c.G + c.B == 0);
-
-            if (_hardwareAccelerated)
+            _notes = new Note[]
             {
-                _notes = new Note[]
-                {
-                    new Note(
-                        new ReadonlyImage("img/circle.png"),
-                        _settings.Buttons[0],
-                        3,
-                        15,
-                        32,
-                        32
-                    ),
-                    new Note(
-                        new ReadonlyImage("img/left.png"),
-                        _settings.Buttons[2],
-                        1,
-                        14,
-                        32,
-                        33
-                    ),
-                    new Note(
-                        new ReadonlyImage("img/right.png"),
-                        _settings.Buttons[3],
-                        1,
-                        14,
-                        32,
-                        33
-                    ),
-                    new Note(new ReadonlyImage("img/up.png"), _settings.Buttons[4], 2, 13, 32, 34),
-                    new Note(new ReadonlyImage("img/down.png"), _settings.Buttons[5], 2, 13, 32, 34)
-                };
-            }
-            else
-            {
-                _notes = new Note[]
-                {
-                    new Note(
-                        new ReadonlyImage("img/circle.png"),
-                        _settings.Buttons[0],
-                        5,
-                        15,
-                        30,
-                        32
-                    ),
-                    new Note(
-                        new ReadonlyImage("img/left.png"),
-                        _settings.Buttons[2],
-                        2,
-                        14,
-                        32,
-                        33
-                    ),
-                    new Note(
-                        new ReadonlyImage("img/right.png"),
-                        _settings.Buttons[3],
-                        2,
-                        14,
-                        32,
-                        33
-                    ),
-                    new Note(new ReadonlyImage("img/up.png"), _settings.Buttons[4], 3, 13, 31, 34),
-                    new Note(new ReadonlyImage("img/down.png"), _settings.Buttons[5], 3, 13, 31, 34)
-                };
-            }
+                new Note(new ReadonlyImage("img/circle.png"), _settings.Buttons[0], 5, 15, 30, 32),
+                new Note(new ReadonlyImage("img/left.png"), _settings.Buttons[2], 2, 14, 32, 33),
+                new Note(new ReadonlyImage("img/right.png"), _settings.Buttons[3], 2, 14, 32, 33),
+                new Note(new ReadonlyImage("img/up.png"), _settings.Buttons[4], 3, 13, 31, 34),
+                new Note(new ReadonlyImage("img/down.png"), _settings.Buttons[5], 3, 13, 31, 34)
+            };
 
             Console.WriteLine();
         }
@@ -173,51 +108,7 @@ static partial class Program
     {
         Console.WriteLine(_jpMode ? "BOTTO wo kidou simasita." : "Bot started.");
         Console.WriteLine(_jpMode ? "CTRL + C wo osite teisi." : "Press ctrl + C to stop.");
-        if (_hardwareAccelerated)
-        {
-            Console.WriteLine(
-                _jpMode
-                    ? "cyuui: HoloCure no mado ha HA-DOUXEA AKUSERARE-SYON ni sareteimasu. ippan no SUKURI-NSYOTTO houhou ni tayorimasu. BOTTO ha osoku narimasu. HoloCure no mado ga kaburarenai you ni site kudasai."
-                    : "Note: The HoloCure window is hardware accelerated. Resorting to taking normal screenshots. The bot will be slower, and please make sure that the HoloCure window always stays on top."
-            );
-            Console.WriteLine(
-                _jpMode
-                    ? "syousai zyouhou: https://support.microsoft.com/ja-jp/windows/3f006843-2c7e-4ed0-9a5e-f9389e535952"
-                    : "More info: https://support.microsoft.com/windows/3f006843-2c7e-4ed0-9a5e-f9389e535952"
-            );
-            Console.WriteLine();
-            Console.WriteLine(
-                _jpMode
-                    ? "mosimo haikei de hatarakitai baai ha, ika no sizi wo tamesite kudasai:"
-                    : "If you want to run HoloCure in the background instead, you can try these steps:"
-            );
-            Console.WriteLine(
-                _jpMode
-                    ? "1. BOTTO wo kanrisya tosite zikkou site mite kudasai. mukou no baai ha, SUTEPPU 2 ni susunde kudasai."
-                    : "1. Re-run the bot as administrator. If that doesn't work, proceed to step 2."
-            );
-            Console.WriteLine(
-                _jpMode
-                    ? "2. settei de, \"SISUTEMU\" > \"hyouzi\" > \"GURAFIKKUSU\" > \"kitei no GURAFIKKUSU settei wo henkou suru\" wo sentaku site kudasai."
-                    : "2. Open settings, and navigate to System > Display > Graphics > Default graphics settings."
-            );
-            Console.WriteLine(
-                _jpMode
-                    ? "3. ika no settei wo dekiru kagiri OFU ni site kudasai:"
-                        + "\n\ta. UXINDOU GE-MU no saitekika"
-                        + "\n\tb. kahen RIFURESSYU RE-TO"
-                        + "\n\tc. zidou HDR"
-                    : "3. Disable the following (if the setting(s) can be found):"
-                        + "\n\ta. Optimizations for windowed games"
-                        + "\n\tb. Variable refresh rate"
-                        + "\n\tc. Auto HDR"
-            );
-            Console.WriteLine(
-                _jpMode
-                    ? "4. HoloCure wo saikidou site, mou itido tamesite kudasai. mukou no baai ha, mousi wake gozaimasen desita :("
-                    : "4. Restart Holocure and try again. If that doesn't work, then I'm out of tricks :("
-            );
-        }
+        if (_hardwareAccelerated) { }
         else
         {
             Console.WriteLine(
@@ -236,6 +127,8 @@ static partial class Program
         Stopwatch waitSw = Stopwatch.StartNew();
         while (true)
         {
+            CaptureHolocureWindow().Save("test.png");
+
             // Invalidate capture
             _lastCapture = null;
 
@@ -286,6 +179,11 @@ static partial class Program
                         ? "20byou inai ni NO-TU ga mitukarimasen desita. kore ga tudukeru baai ha, HoloCure no kaizoudo wo tiisaku site kudasai. MINIGE-MU wo saikidou simasu."
                         : "No notes detected in 20 seconds. If this continues, try setting HoloCure to a smaller resolution. Restarting minigame."
                 );
+                if (!_hardwareAccelerated)
+                {
+                    ActivateDirectXWorkaround();
+                }
+
                 playing = false;
                 timeoutSw.Restart();
             }
@@ -424,5 +322,65 @@ static partial class Program
                     : $"Target area found: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
             );
         }
+    }
+
+    private static void ActivateDirectXWorkaround()
+    {
+        _hardwareAccelerated = true;
+
+        _notes = new Note[]
+        {
+            new Note(new ReadonlyImage("img/circle.png"), _settings.Buttons[0], 3, 15, 32, 32),
+            new Note(new ReadonlyImage("img/left.png"), _settings.Buttons[2], 1, 14, 32, 33),
+            new Note(new ReadonlyImage("img/right.png"), _settings.Buttons[3], 1, 14, 32, 33),
+            new Note(new ReadonlyImage("img/up.png"), _settings.Buttons[4], 2, 13, 32, 34),
+            new Note(new ReadonlyImage("img/down.png"), _settings.Buttons[5], 2, 13, 32, 34)
+        };
+
+        Console.WriteLine(
+            _jpMode
+                ? "cyuui: HoloCure no mado ha HA-DOUXEA AKUSERARE-SYON ni sareteiru kanousei ga arimasu. ippan no SUKURI-NSYOTTO houhou ni tayorimasu. BOTTO ha osoku narimasu. HoloCure no mado ga kaburarenai you ni site kudasai."
+                : "Note: The HoloCure window may be hardware accelerated. Resorting to taking normal screenshots. The bot will be slower, and please make sure that the HoloCure window always stays on top."
+        );
+        Console.WriteLine(
+            _jpMode
+                ? "syousai zyouhou: https://support.microsoft.com/ja-jp/windows/3f006843-2c7e-4ed0-9a5e-f9389e535952"
+                : "More info: https://support.microsoft.com/windows/3f006843-2c7e-4ed0-9a5e-f9389e535952"
+        );
+        Console.WriteLine();
+        Console.WriteLine(
+            _jpMode
+                ? "mosimo haikei de hatarakitai baai ha, ika no sizi wo tamesite kudasai:"
+                : "If you want to run HoloCure in the background instead, you can try these steps:"
+        );
+        Console.WriteLine(
+            _jpMode
+                ? "1. BOTTO wo kanrisya tosite zikkou site mite kudasai. mukou no baai ha, SUTEPPU 2 ni susunde kudasai."
+                : "1. Re-run the bot as administrator. If that doesn't work, proceed to step 2."
+        );
+        Console.WriteLine(
+            _jpMode
+                ? "2. settei de, \"SISUTEMU\" > \"hyouzi\" > \"GURAFIKKUSU\" > \"kitei no GURAFIKKUSU settei wo henkou suru\" wo sentaku site kudasai."
+                : "2. Open settings, and navigate to System > Display > Graphics > Default graphics settings."
+        );
+        Console.WriteLine(
+            _jpMode
+                ? "3. ika no settei wo dekiru kagiri OFU ni site kudasai:"
+                    + "\n\ta. UXINDOU GE-MU no saitekika"
+                    + "\n\tb. kahen RIFURESSYU RE-TO"
+                    + "\n\tc. zidou HDR"
+                : "3. Disable the following (if the setting(s) can be found):"
+                    + "\n\ta. Optimizations for windowed games"
+                    + "\n\tb. Variable refresh rate"
+                    + "\n\tc. Auto HDR"
+        );
+        Console.WriteLine(
+            _jpMode
+                ? "4. HoloCure wo saikidou site, mou itido tamesite kudasai. mukou no baai ha, mousi wake gozaimasen desita :("
+                : "4. Restart Holocure and try again. If that doesn't work, then I'm out of tricks :("
+        );
+
+        // Bring HoloCure window to front
+        SetForegroundWindow(_windowHandle);
     }
 }
