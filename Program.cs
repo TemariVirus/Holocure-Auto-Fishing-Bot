@@ -127,8 +127,6 @@ static partial class Program
         Stopwatch waitSw = Stopwatch.StartNew();
         while (true)
         {
-            CaptureHolocureWindow().Save("test.png");
-
             // Invalidate capture
             _lastCapture = null;
 
