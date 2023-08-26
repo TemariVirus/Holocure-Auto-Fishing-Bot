@@ -3,7 +3,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 
-internal static class WindowUtils
+internal static partial class Program
 {
     [StructLayout(LayoutKind.Sequential)]
     private struct Rect
@@ -55,51 +55,90 @@ internal static class WindowUtils
         return physicalHeight / logicalHeight;
     }
 
-    private static Rect GetWindowRectUnscaled(IntPtr hWnd)
+    private static Rect GetWindowRectUnscaled()
     {
         Rect rect = new Rect();
-        GetWindowRect(hWnd, ref rect);
+        GetWindowRect(_windowHandle, ref rect);
 
-        rect.Left = (int)Math.Round(rect.Left * _scaleFactor);
-        rect.Top = (int)Math.Round(rect.Top * _scaleFactor);
-        rect.Right = (int)Math.Round(rect.Right * _scaleFactor);
-        rect.Bottom = (int)Math.Round(rect.Bottom * _scaleFactor);
+        rect.Left = (int)Math.Round(rect.Left * _scaleFactor) + 8;
+        rect.Top = (int)Math.Round(rect.Top * _scaleFactor) + 31;
+        rect.Right = (int)Math.Round(rect.Right * _scaleFactor) - 8;
+        rect.Bottom = (int)Math.Round(rect.Bottom * _scaleFactor) - 8;
 
         return rect;
     }
 
-    public static ReadonlyImage CaptureWindow(
-        IntPtr hWnd,
+    private static int GetHolocureResolution(Rect rect)
+    {
+        const int GRACE = 32;
+
+        int width = rect.Right - rect.Left - GRACE;
+        int height = rect.Bottom - rect.Top - GRACE;
+        if (width <= 640 && height <= 360)
+        {
+            return 1;
+        }
+        else if (width <= 1280 && height <= 720)
+        {
+            return 2;
+        }
+        else if (width <= 1920 && height <= 1080)
+        {
+            return 3;
+        }
+        else if (width <= 2560 && height <= 1440)
+        {
+            return 4;
+        }
+
+        throw new Exception(
+            _jpMode
+                ? "kaizoudo ga fumei desita. HoloCure no kaizoudo wo tiisaku shite mite kudasai."
+                : "Could not determine resolution. Try making HoloCure's resolution smaller."
+        );
+    }
+
+    // Always behaves as if the window is 640 x 360
+    private static ReadonlyImage CaptureHolocureWindow(
         int left = 0,
         int top = 0,
         int width = -1,
         int height = -1
     )
     {
-        Rect rect = GetWindowRectUnscaled(hWnd);
-        rect.Left += left + 8;
-        rect.Top += top + 31;
-        rect.Right -= 8;
-        rect.Bottom -= 8;
+        Rect rect = GetWindowRectUnscaled();
+
+        int oldResolution = _resolution;
+        _resolution = GetHolocureResolution(rect);
+        if (oldResolution != _resolution)
+        {
+            _targetLeft = -1;
+            _targetTop = -1;
+        }
+
+        rect.Left += left * _resolution;
+        rect.Top += top * _resolution;
 
         if (width < 0)
         {
-            width = rect.Right - rect.Left;
+            width = 640;
         }
         if (height < 0)
         {
-            height = rect.Bottom - rect.Top;
+            height = 360;
         }
+        width *= _resolution;
+        height *= _resolution;
 
         Bitmap bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
         Graphics graphics = Graphics.FromImage(bmp);
         IntPtr hdcBitmap = graphics.GetHdc();
-        IntPtr hdcWindow = GetWindowDC(hWnd);
+        IntPtr hdcWindow = GetWindowDC(_windowHandle);
         BitBlt(hdcBitmap, 0, 0, width, height, hdcWindow, rect.Left, rect.Top, 0x00CC0020);
 
         graphics.ReleaseHdc(hdcBitmap);
-        ReleaseDC(hWnd, hdcWindow);
+        ReleaseDC(_windowHandle, hdcWindow);
 
-        return new ReadonlyImage(bmp);
+        return new ReadonlyImage(bmp).ShrinkBy(_resolution);
     }
 }

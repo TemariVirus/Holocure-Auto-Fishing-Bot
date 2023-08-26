@@ -9,18 +9,16 @@ using System.Threading;
 internal readonly struct Settings
 {
     public string[] Buttons { get; }
-    public int Resolution { get; }
     public bool IsFullscreen { get; }
 
-    public Settings(string[] buttons, int resolution, bool fullscreen)
+    public Settings(string[] buttons, bool fullscreen)
     {
         Buttons = buttons;
-        Resolution = resolution;
         IsFullscreen = fullscreen;
     }
 }
 
-static class Program
+static partial class Program
 {
     private static readonly ReadonlyImage _targetImage = new ReadonlyImage("img/target circle.png");
     private static readonly ReadonlyImage _okImage = new ReadonlyImage("img/ok.png");
@@ -28,6 +26,7 @@ static class Program
     private static readonly Note[] _notes;
 
     private static readonly Settings _settings;
+    private static int _resolution;
 
     private static readonly IntPtr _windowHandle;
     private static int _targetLeft = -1;
@@ -67,38 +66,15 @@ static class Program
                 );
             }
 
-            if (_settings.Resolution < 1 || _settings.Resolution > 4)
-            {
-                Console.WriteLine(
-                    _jpMode
-                        ? "HoloCure no kaizoudo settei ni ayamari ga arimasita. 1280 x 720 to soutei simasu."
-                        : "Found invalid HoloCure resolution setting. Assuming 1280 x 720."
-                );
-                _settings = new Settings(_settings.Buttons, 2, _settings.IsFullscreen);
-            }
-            else
-            {
-                string res = new string[]
-                {
-                    "640 x 360",
-                    "1280 x 720",
-                    "1920 x 1080",
-                    "2560 x 1440"
-                }[_settings.Resolution - 1];
-                Console.WriteLine(
-                    _jpMode
-                        ? $"HoloCure no kaizoudo ga mitukarimasita: {res}"
-                        : $"Detected HoloCure resolution: {res}"
-                );
-            }
-            if (_settings.Resolution == 4)
-            {
-                Console.WriteLine(
-                    _jpMode
-                        ? "botto ha 2560 x 1440 no kaizoudo deha hataraku koto ga dekimasen kanousei ga arimasu."
-                        : "Bot may not completely work on 2560 x 1440 resolution."
-                );
-            }
+            _resolution = GetHolocureResolution(GetWindowRectUnscaled());
+            string res = new string[] { "640 x 360", "1280 x 720", "1920 x 1080", "2560 x 1440" }[
+                _resolution - 1
+            ];
+            Console.WriteLine(
+                _jpMode
+                    ? $"HoloCure no kaizoudo ga mitukarimasita: {res}"
+                    : $"Detected HoloCure resolution: {res}"
+            );
 
             _notes = new Note[]
             {
@@ -116,7 +92,7 @@ static class Program
         }
     }
 
-    static void Main()
+    private static void Main()
     {
         Console.WriteLine(_jpMode ? "botto wo kidou simasita" : "Bot started.");
         Console.WriteLine(
@@ -155,10 +131,10 @@ static class Program
             }
 
             // Aim for a little over 60 cycles per second to match framerate
-            // while (cycleCount / perfSw.Elapsed.TotalSeconds > 69)
-            // {
-            //     Thread.Sleep(1);
-            // }
+            while (cycleCount / perfSw.Elapsed.TotalSeconds > 69)
+            {
+                Thread.Sleep(1);
+            }
 
             // Print cycles per second
             cycleCount++;
@@ -176,8 +152,8 @@ static class Program
             {
                 Console.WriteLine(
                     _jpMode
-                        ? "20byou inai ni no-tu ga mitukarimasen desita. minige-mu wo saikidou siyou to simasu."
-                        : "No notes detected in 20 seconds. Attempting to restart minigame."
+                        ? "20byou inai ni no-tu ga mitukarimasen desita. kore ga tudukeru baai ha, HoloCure no kaizoudo wo tiisaku site kudasai. minige-mu wo saikidou simasu."
+                        : "No notes detected in 20 seconds. If this continues, try setting HoloCure to a smaller resolution. Restarting minigame."
                 );
                 playing = false;
                 timeoutSw.Restart();
@@ -222,17 +198,6 @@ static class Program
             .Select(s => s.Trim(' ', '"'))
             .ToArray();
 
-        Match resMatch = Regex.Match(jsonText, @"""Resolution"":(\d+\.\d+|\d+)");
-        if (!resMatch.Success)
-        {
-            throw new Exception(
-                _jpMode
-                    ? "settei fairu ni kaizoudo ga mitukarimasen desita."
-                    : "settings.json was not formatted correctly. Could not find resolution setting."
-            );
-        }
-        double resolution = double.Parse(resMatch.Groups[1].Value);
-
         Match fullscreenMatch = Regex.Match(jsonText, @"""fullscreen"":(\d+\.\d+|\d+|true|false)");
         if (!fullscreenMatch.Success)
         {
@@ -250,7 +215,7 @@ static class Program
             ? fullscreenNum != 0.0
             : bool.Parse(fullscreenMatch.Groups[1].Value);
 
-        return new Settings(buttons, (int)resolution + 1, fullscreen);
+        return new Settings(buttons, fullscreen);
     }
 
     private static IntPtr GetHolocureWindow()
@@ -264,23 +229,6 @@ static class Program
         }
 
         return processes[0].MainWindowHandle;
-    }
-
-    private static ReadonlyImage CaptureHolocureWindow(
-        int left = 0,
-        int top = 0,
-        int width = -1,
-        int height = -1
-    )
-    {
-        left *= _settings.Resolution;
-        top *= _settings.Resolution;
-        width *= _settings.Resolution;
-        height *= _settings.Resolution;
-
-        return WindowUtils
-            .CaptureWindow(_windowHandle, left, top, width, height)
-            .Shrink(_settings.Resolution);
     }
 
     private static void StartFishingGame()
@@ -341,8 +289,8 @@ static class Program
         {
             Console.WriteLine(
                 _jpMode
-                    ? $"ta-getto ga mitukarimasita: X={_targetLeft * _settings.Resolution}, Y={_targetTop * _settings.Resolution}"
-                    : $"Target area found: X={_targetLeft * _settings.Resolution}, Y={_targetTop * _settings.Resolution}"
+                    ? $"ta-getto ga mitukarimasita: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
+                    : $"Target area found: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
             );
         }
     }

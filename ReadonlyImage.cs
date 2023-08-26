@@ -90,7 +90,7 @@ internal sealed class ReadonlyImage
         src.UnlockBits(data);
     }
 
-    public ReadonlyImage Shrink(int factor)
+    public ReadonlyImage ShrinkBy(int factor)
     {
         ReadonlyImage shrunk = new ReadonlyImage(Width / factor, Height / factor);
         for (int i = 0; i < shrunk.Width; i++)
