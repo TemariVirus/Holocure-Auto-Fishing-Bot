@@ -5,15 +5,14 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
-using static WindowUtils;
 
 internal readonly struct Settings
 {
     public string[] Buttons { get; }
-    public double Resolution { get; }
+    public int Resolution { get; }
     public bool IsFullscreen { get; }
 
-    public Settings(string[] buttons, double resolution, bool fullscreen)
+    public Settings(string[] buttons, int resolution, bool fullscreen)
     {
         Buttons = buttons;
         Resolution = resolution;
@@ -25,9 +24,7 @@ static class Program
 {
     private static readonly ReadonlyImage _targetImage = new ReadonlyImage("img/target circle.png");
     private static readonly ReadonlyImage _okImage = new ReadonlyImage("img/ok.png");
-    private static readonly ReadonlyImage _caughtImageEn = new ReadonlyImage("img/caught_en.png");
-    private static readonly ReadonlyImage _caughtImageJp = new ReadonlyImage("img/caught_jp.png");
-    private static readonly ReadonlyImage _caughtImageId = new ReadonlyImage("img/caught_id.png");
+
     private static readonly Note[] _notes;
 
     private static readonly Settings _settings;
@@ -69,12 +66,37 @@ static class Program
                     _jpMode ? "furusukuri-n wo ofu ni site kudasai." : "Please turn off fullscreen."
                 );
             }
-            if (_settings.Resolution != 0.0)
+
+            if (_settings.Resolution < 1 || _settings.Resolution > 4)
             {
-                throw new Exception(
+                Console.WriteLine(
                     _jpMode
-                        ? "kaizoudo wo 640 x 360 ni site kudasai."
-                        : "Please set resolution to 640 x 360."
+                        ? "HoloCure no kaizoudo settei ni ayamari ga arimasita. 1280 x 720 to soutei simasu."
+                        : "Found invalid HoloCure resolution setting. Assuming 1280 x 720."
+                );
+                _settings = new Settings(_settings.Buttons, 2, _settings.IsFullscreen);
+            }
+            else
+            {
+                string res = new string[]
+                {
+                    "640 x 360",
+                    "1280 x 720",
+                    "1920 x 1080",
+                    "2560 x 1440"
+                }[_settings.Resolution - 1];
+                Console.WriteLine(
+                    _jpMode
+                        ? $"HoloCure no kaizoudo ga mitukarimasita: {res}"
+                        : $"Detected HoloCure resolution: {res}"
+                );
+            }
+            if (_settings.Resolution == 4)
+            {
+                Console.WriteLine(
+                    _jpMode
+                        ? "botto ha 2560 x 1440 no kaizoudo deha hataraku koto ga dekimasen kanousei ga arimasu."
+                        : "Bot may not completely work on 2560 x 1440 resolution."
                 );
             }
 
@@ -104,10 +126,10 @@ static class Program
         );
         // Start bot loop
         bool playing = false;
-        int captureCount = 0;
-        int chain = 0;
+        int cycleCount = 0;
         Stopwatch perfSw = Stopwatch.StartNew();
         Stopwatch timeoutSw = Stopwatch.StartNew();
+        Stopwatch waitSw = Stopwatch.StartNew();
         while (true)
         {
             if (!playing)
@@ -116,6 +138,7 @@ static class Program
 
                 StartFishingGame();
                 timeoutSw.Restart();
+                waitSw.Restart();
                 playing = true;
 
                 perfSw.Start();
@@ -124,39 +147,38 @@ static class Program
 
             if (_targetLeft >= 0 && _targetTop >= 0)
             {
-                PlayFishingGame(ref playing, ref chain, in timeoutSw);
+                PlayFishingGame(ref playing, in timeoutSw);
             }
             else
             {
                 FindTargetArea();
             }
 
-            // Aim for a little over 60 captures per second to match framerate
-            while (captureCount / perfSw.Elapsed.TotalSeconds > 69)
-            {
-                Thread.Sleep(1);
-            }
+            // Aim for a little over 60 cycles per second to match framerate
+            // while (cycleCount / perfSw.Elapsed.TotalSeconds > 69)
+            // {
+            //     Thread.Sleep(1);
+            // }
 
-            // Print captures per second
-            captureCount++;
-            if (perfSw.ElapsedMilliseconds >= 1000)
+            // Print cycles per second
+            cycleCount++;
+            if (perfSw.ElapsedMilliseconds >= 4545)
             {
                 Console.WriteLine(
-                    $"Captures per second: {captureCount / perfSw.Elapsed.TotalSeconds:F2}"
+                    $"Cycles per second: {cycleCount / perfSw.Elapsed.TotalSeconds:F2}"
                 );
-                captureCount = 0;
+                cycleCount = 0;
                 perfSw.Restart();
             }
 
             // If no notes for too long, restart
-            if (timeoutSw.ElapsedMilliseconds >= 30_000)
+            if (timeoutSw.ElapsedMilliseconds >= 20_000)
             {
                 Console.WriteLine(
                     _jpMode
-                        ? "30byou inai ni no-tu ga mitukarimasen desita. minige-mu wo saikidou siyou to simasu."
-                        : "No notes detected in 30 seconds. Attempting to restart minigame."
+                        ? "20byou inai ni no-tu ga mitukarimasen desita. minige-mu wo saikidou siyou to simasu."
+                        : "No notes detected in 20 seconds. Attempting to restart minigame."
                 );
-                ResetChain(ref chain);
                 playing = false;
                 timeoutSw.Restart();
             }
@@ -228,10 +250,10 @@ static class Program
             ? fullscreenNum != 0.0
             : bool.Parse(fullscreenMatch.Groups[1].Value);
 
-        return new Settings(buttons, resolution, fullscreen);
+        return new Settings(buttons, (int)resolution + 1, fullscreen);
     }
 
-    public static IntPtr GetHolocureWindow()
+    private static IntPtr GetHolocureWindow()
     {
         Process[] processes = Process.GetProcessesByName("holocure");
         if (processes.Length <= 0)
@@ -242,6 +264,23 @@ static class Program
         }
 
         return processes[0].MainWindowHandle;
+    }
+
+    private static ReadonlyImage CaptureHolocureWindow(
+        int left = 0,
+        int top = 0,
+        int width = -1,
+        int height = -1
+    )
+    {
+        left *= _settings.Resolution;
+        top *= _settings.Resolution;
+        width *= _settings.Resolution;
+        height *= _settings.Resolution;
+
+        return WindowUtils
+            .CaptureWindow(_windowHandle, left, top, width, height)
+            .Shrink(_settings.Resolution);
     }
 
     private static void StartFishingGame()
@@ -256,19 +295,13 @@ static class Program
         }
     }
 
-    private static void PlayFishingGame(ref bool playing, ref int chain, in Stopwatch timeoutSw)
+    private static void PlayFishingGame(ref bool playing, in Stopwatch timeoutSw)
     {
         int right = _notes.Max(note => note.Right);
         int bottom = _notes.Max(note => note.Bottom);
 
         bool noteFound = false;
-        ReadonlyImage targetArea = CaptureWindow(
-            _windowHandle,
-            _targetLeft,
-            _targetTop,
-            right,
-            bottom
-        );
+        ReadonlyImage targetArea = CaptureHolocureWindow(_targetLeft, _targetTop, right, bottom);
         foreach (Note note in _notes)
         {
             if (targetArea.ContainsNote(note))
@@ -286,65 +319,30 @@ static class Program
         }
         else
         {
-            CheckGameFisished(ref playing, ref chain);
+            CheckGameFisished(ref playing);
         }
     }
 
-    private static void CheckGameFisished(ref bool playing, ref int chain)
+    private static void CheckGameFisished(ref bool playing)
     {
-        ReadonlyImage okArea = CaptureWindow(
-            _windowHandle,
-            _targetLeft - 63,
-            _targetTop + 32,
-            11,
-            9
-        );
+        ReadonlyImage okArea = CaptureHolocureWindow(_targetLeft - 63, _targetTop + 32, 11, 9);
         if (!okArea.CroppedEquals(_okImage))
         {
             return;
         }
         playing = false;
-
-        // Check if caught sucessfully
-        ReadonlyImage caughtArea = CaptureWindow(
-            _windowHandle,
-            _targetLeft - 94,
-            _targetTop - 107,
-            10,
-            10
-        );
-        if (
-            caughtArea.CroppedEquals(_caughtImageEn)
-            || caughtArea.CroppedEquals(_caughtImageJp)
-            || caughtArea.CroppedEquals(_caughtImageId)
-        )
-        {
-            chain++;
-        }
-        else
-        {
-            ResetChain(ref chain);
-        }
-    }
-
-    private static void ResetChain(ref int chain)
-    {
-        Console.WriteLine(
-            _jpMode ? $"saidai konbo ha {chain} desita." : $"Chain broke at {chain}."
-        );
-        chain = 0;
     }
 
     private static void FindTargetArea()
     {
-        ReadonlyImage screen = CaptureWindow(_windowHandle);
+        ReadonlyImage screen = CaptureHolocureWindow();
         (_targetLeft, _targetTop) = screen.Find(_targetImage);
         if (_targetLeft >= 0 && _targetTop >= 0)
         {
             Console.WriteLine(
                 _jpMode
-                    ? $"ta-getto ga mitukarimasita: X={_targetLeft}, Y={_targetTop}"
-                    : $"Target area found: X={_targetLeft}, Y={_targetTop}"
+                    ? $"ta-getto ga mitukarimasita: X={_targetLeft * _settings.Resolution}, Y={_targetTop * _settings.Resolution}"
+                    : $"Target area found: X={_targetLeft * _settings.Resolution}, Y={_targetTop * _settings.Resolution}"
             );
         }
     }

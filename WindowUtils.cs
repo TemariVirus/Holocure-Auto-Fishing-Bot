@@ -3,7 +3,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 
-public static class WindowUtils
+internal static class WindowUtils
 {
     [StructLayout(LayoutKind.Sequential)]
     private struct Rect
@@ -77,8 +77,10 @@ public static class WindowUtils
     )
     {
         Rect rect = GetWindowRectUnscaled(hWnd);
-        rect.Left += left;
-        rect.Top += top;
+        rect.Left += left + 8;
+        rect.Top += top + 31;
+        rect.Right -= 8;
+        rect.Bottom -= 8;
 
         if (width < 0)
         {
@@ -93,7 +95,7 @@ public static class WindowUtils
         Graphics graphics = Graphics.FromImage(bmp);
         IntPtr hdcBitmap = graphics.GetHdc();
         IntPtr hdcWindow = GetWindowDC(hWnd);
-        BitBlt(hdcBitmap, 0, 0, width, height, hdcWindow, left, top, 0x00CC0020);
+        BitBlt(hdcBitmap, 0, 0, width, height, hdcWindow, rect.Left, rect.Top, 0x00CC0020);
 
         graphics.ReleaseHdc(hdcBitmap);
         ReleaseDC(hWnd, hdcWindow);

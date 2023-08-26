@@ -2,7 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 
-public readonly struct ARGBColor
+internal readonly struct ARGBColor
 {
     public byte A { get; }
     public byte R { get; }
@@ -32,7 +32,7 @@ public readonly struct ARGBColor
     }
 }
 
-public sealed class ReadonlyImage
+internal sealed class ReadonlyImage
 {
     public int Width { get; }
     public int Height { get; }
@@ -42,6 +42,13 @@ public sealed class ReadonlyImage
     {
         get => _pixels[y * Width + x];
         set => _pixels[y * Width + x] = value;
+    }
+
+    private ReadonlyImage(int width, int height)
+    {
+        Width = width;
+        Height = height;
+        _pixels = new ARGBColor[Width * Height];
     }
 
     public ReadonlyImage(Bitmap source)
@@ -81,6 +88,20 @@ public sealed class ReadonlyImage
         }
 
         src.UnlockBits(data);
+    }
+
+    public ReadonlyImage Shrink(int factor)
+    {
+        ReadonlyImage shrunk = new ReadonlyImage(Width / factor, Height / factor);
+        for (int i = 0; i < shrunk.Width; i++)
+        {
+            for (int j = 0; j < shrunk.Height; j++)
+            {
+                shrunk[i, j] = this[i * factor, j * factor];
+            }
+        }
+
+        return shrunk;
     }
 
     public bool CroppedEquals(
