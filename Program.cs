@@ -29,6 +29,8 @@ static partial class Program
     private static int _resolution;
 
     private static readonly IntPtr _windowHandle;
+    private static int _windowWidth = -1;
+    private static int _windowHeight = -1;
     private static int _targetLeft = -1;
     private static int _targetTop = -1;
 

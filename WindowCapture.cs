@@ -72,8 +72,21 @@ internal static partial class Program
     {
         const int GRACE = 32;
 
-        int width = rect.Right - rect.Left - GRACE;
-        int height = rect.Bottom - rect.Top - GRACE;
+        int width = rect.Right - rect.Left;
+        int height = rect.Bottom - rect.Top;
+        if (_windowWidth !=  width || _windowHeight != height)
+        {
+            _windowWidth = width;
+            _windowHeight = height;
+            Console.WriteLine(_jpMode ? $"HoloCure no mado ha {width} x {height} ni saremasita" : $"HoloCure window was resized to {width} x {height}");
+
+            // Invalidate target position
+            _targetLeft = -1;
+            _targetTop = -1;
+        }
+
+        width -= GRACE;
+        height -= GRACE;
         if (width <= 640 && height <= 360)
         {
             return 1;
@@ -107,14 +120,7 @@ internal static partial class Program
     )
     {
         Rect rect = GetWindowRectUnscaled();
-
-        int oldResolution = _resolution;
         _resolution = GetHolocureResolution(rect);
-        if (oldResolution != _resolution)
-        {
-            _targetLeft = -1;
-            _targetTop = -1;
-        }
 
         rect.Left += left * _resolution;
         rect.Top += top * _resolution;
