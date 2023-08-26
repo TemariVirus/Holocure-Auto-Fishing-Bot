@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 
@@ -20,6 +21,9 @@ internal readonly struct Settings
 
 static partial class Program
 {
+    [DllImport("user32")]
+    private static extern bool SetForegroundWindow(IntPtr hwnd);
+
     private static readonly ReadonlyImage _targetImage = new ReadonlyImage("img/target circle.png");
     private static readonly ReadonlyImage _okImage = new ReadonlyImage("img/ok.png");
 
@@ -29,6 +33,7 @@ static partial class Program
     private static int _resolution;
 
     private static readonly IntPtr _windowHandle;
+    private static ReadonlyImage _lastCapture = null;
     private static int _windowWidth = -1;
     private static int _windowHeight = -1;
     private static int _targetLeft = -1;
@@ -36,6 +41,7 @@ static partial class Program
 
     private static readonly bool _jpMode =
         CultureInfo.CurrentCulture.ThreeLetterISOLanguageName.ToLower() == "jpn";
+    private static readonly bool _hardwareAccelerated;
 
     static Program()
     {
@@ -52,7 +58,7 @@ static partial class Program
                 _jpMode ? "HoloCure settei ga mitukarimasita." : "Holocure settings found."
             );
             Console.WriteLine(
-                (_jpMode ? "ki-baindo: " : "Buttons: ")
+                (_jpMode ? "KI-BAINDO: " : "Buttons: ")
                     + $"[{string.Join(", ", _settings.Buttons)}]"
             );
 
@@ -64,7 +70,9 @@ static partial class Program
             if (_settings.IsFullscreen)
             {
                 throw new Exception(
-                    _jpMode ? "furusukuri-n wo ofu ni site kudasai." : "Please turn off fullscreen."
+                    _jpMode
+                        ? "FURUSUKURI-N wo OFU ni site kudasai."
+                        : "Please turn off full screen."
                 );
             }
 
@@ -78,14 +86,81 @@ static partial class Program
                     : $"Detected HoloCure resolution: {res}"
             );
 
-            _notes = new Note[]
+            _hardwareAccelerated = false;
+            // Bring HoloCure window to front
+            SetForegroundWindow(_windowHandle);
+            Thread.Sleep(100);
+            // Check for hardware acceleration or full screen
+            _hardwareAccelerated = CaptureHolocureWindow(80, 80, 20, 20)
+                .ToArray()
+                .All(c => c.R + c.G + c.B == 0);
+
+            if (_hardwareAccelerated)
             {
-                new Note(new ReadonlyImage("img/circle.png"), _settings.Buttons[0], 5, 15, 30, 32),
-                new Note(new ReadonlyImage("img/left.png"), _settings.Buttons[2], 2, 14, 32, 33),
-                new Note(new ReadonlyImage("img/right.png"), _settings.Buttons[3], 2, 14, 32, 33),
-                new Note(new ReadonlyImage("img/up.png"), _settings.Buttons[4], 3, 13, 31, 34),
-                new Note(new ReadonlyImage("img/down.png"), _settings.Buttons[5], 3, 13, 31, 34)
-            };
+                _notes = new Note[]
+                {
+                    new Note(
+                        new ReadonlyImage("img/circle.png"),
+                        _settings.Buttons[0],
+                        3,
+                        15,
+                        32,
+                        32
+                    ),
+                    new Note(
+                        new ReadonlyImage("img/left.png"),
+                        _settings.Buttons[2],
+                        1,
+                        14,
+                        32,
+                        33
+                    ),
+                    new Note(
+                        new ReadonlyImage("img/right.png"),
+                        _settings.Buttons[3],
+                        1,
+                        14,
+                        32,
+                        33
+                    ),
+                    new Note(new ReadonlyImage("img/up.png"), _settings.Buttons[4], 2, 13, 32, 34),
+                    new Note(new ReadonlyImage("img/down.png"), _settings.Buttons[5], 2, 13, 32, 34)
+                };
+            }
+            else
+            {
+                _notes = new Note[]
+                {
+                    new Note(
+                        new ReadonlyImage("img/circle.png"),
+                        _settings.Buttons[0],
+                        5,
+                        15,
+                        30,
+                        32
+                    ),
+                    new Note(
+                        new ReadonlyImage("img/left.png"),
+                        _settings.Buttons[2],
+                        2,
+                        14,
+                        32,
+                        33
+                    ),
+                    new Note(
+                        new ReadonlyImage("img/right.png"),
+                        _settings.Buttons[3],
+                        2,
+                        14,
+                        32,
+                        33
+                    ),
+                    new Note(new ReadonlyImage("img/up.png"), _settings.Buttons[4], 3, 13, 31, 34),
+                    new Note(new ReadonlyImage("img/down.png"), _settings.Buttons[5], 3, 13, 31, 34)
+                };
+            }
+
+            Console.WriteLine();
         }
         catch (Exception e)
         {
@@ -96,12 +171,63 @@ static partial class Program
 
     private static void Main()
     {
-        Console.WriteLine(_jpMode ? "botto wo kidou simasita" : "Bot started.");
-        Console.WriteLine(
-            _jpMode
-                ? "minige-mu ga gamengai ni denai you ni site kudasai (hoka no mado ni kaburarete mo daijoubu desu).\n"
-                : "Please ensure that the minigame is within view at all times (you can still have other windows on top of it).\n"
-        );
+        Console.WriteLine(_jpMode ? "BOTTO wo kidou simasita." : "Bot started.");
+        Console.WriteLine(_jpMode ? "CTRL + C wo osite teisi." : "Press ctrl + C to stop.");
+        if (_hardwareAccelerated)
+        {
+            Console.WriteLine(
+                _jpMode
+                    ? "cyuui: HoloCure no mado ha HA-DOUXEA AKUSERARE-SYON ni sareteimasu. ippan no SUKURI-NSYOTTO houhou ni tayorimasu. BOTTO ha osoku narimasu. HoloCure no mado ga kaburarenai you ni site kudasai."
+                    : "Note: The HoloCure window is hardware accelerated. Resorting to taking normal screenshots. The bot will be slower, and please make sure that the HoloCure window always stays on top."
+            );
+            Console.WriteLine(
+                _jpMode
+                    ? "syousai zyouhou: https://support.microsoft.com/ja-jp/windows/3f006843-2c7e-4ed0-9a5e-f9389e535952"
+                    : "More info: https://support.microsoft.com/windows/3f006843-2c7e-4ed0-9a5e-f9389e535952"
+            );
+            Console.WriteLine();
+            Console.WriteLine(
+                _jpMode
+                    ? "mosimo haikei de hatarakitai baai ha, ika no sizi wo tamesite kudasai:"
+                    : "If you want to run HoloCure in the background instead, you can try these steps:"
+            );
+            Console.WriteLine(
+                _jpMode
+                    ? "1. BOTTO wo kanrisya tosite zikkou site mite kudasai. mukou no baai ha, SUTEPPU 2 ni susunde kudasai."
+                    : "1. Re-run the bot as administrator. If that doesn't work, proceed to step 2."
+            );
+            Console.WriteLine(
+                _jpMode
+                    ? "2. settei de, \"SISUTEMU\" > \"hyouzi\" > \"GURAFIKKUSU\" > \"kitei no GURAFIKKUSU settei wo henkou suru\" wo sentaku site kudasai."
+                    : "2. Open settings, and navigate to System > Display > Graphics > Default graphics settings."
+            );
+            Console.WriteLine(
+                _jpMode
+                    ? "3. ika no settei wo dekiru kagiri OFU ni site kudasai:"
+                        + "\n\ta. UXINDOU GE-MU no saitekika"
+                        + "\n\tb. kahen RIFURESSYU RE-TO"
+                        + "\n\tc. zidou HDR"
+                    : "3. Disable the following (if the setting(s) can be found):"
+                        + "\n\ta. Optimizations for windowed games"
+                        + "\n\tb. Variable refresh rate"
+                        + "\n\tc. Auto HDR"
+            );
+            Console.WriteLine(
+                _jpMode
+                    ? "4. HoloCure wo saikidou site, mou itido tamesite kudasai. mukou no baai ha, mousi wake gozaimasen desita :("
+                    : "4. Restart Holocure and try again. If that doesn't work, then I'm out of tricks :("
+            );
+        }
+        else
+        {
+            Console.WriteLine(
+                _jpMode
+                    ? "MINIGE-MU ga gamengai ni denai you ni site kudasai (hoka no mado ni kaburarete mo daizyoubu desu)."
+                    : "Please ensure that the minigame is within view at all times (you can still have other windows on top of it)."
+            );
+        }
+        Console.WriteLine();
+
         // Start bot loop
         bool playing = false;
         int cycleCount = 0;
@@ -110,6 +236,9 @@ static partial class Program
         Stopwatch waitSw = Stopwatch.StartNew();
         while (true)
         {
+            // Invalidate capture
+            _lastCapture = null;
+
             if (!playing)
             {
                 perfSw.Stop();
@@ -154,7 +283,7 @@ static partial class Program
             {
                 Console.WriteLine(
                     _jpMode
-                        ? "20byou inai ni no-tu ga mitukarimasen desita. kore ga tudukeru baai ha, HoloCure no kaizoudo wo tiisaku site kudasai. minige-mu wo saikidou simasu."
+                        ? "20byou inai ni NO-TU ga mitukarimasen desita. kore ga tudukeru baai ha, HoloCure no kaizoudo wo tiisaku site kudasai. MINIGE-MU wo saikidou simasu."
                         : "No notes detected in 20 seconds. If this continues, try setting HoloCure to a smaller resolution. Restarting minigame."
                 );
                 playing = false;
@@ -167,7 +296,7 @@ static partial class Program
     {
         Console.WriteLine(
             $"\n{args.ExceptionObject}\n\n"
-                + (_jpMode ? "ki- wo osite syuuryou." : "Press any key to exit.")
+                + (_jpMode ? "KI- wo osite syuuryou." : "Press any key to exit.")
         );
         Console.ReadKey();
         Environment.Exit(1);
@@ -180,7 +309,7 @@ static partial class Program
         if (!File.Exists(filePath))
         {
             throw new FileNotFoundException(
-                _jpMode ? "settei fairu ga mitukarimasen desita." : "Settings file not found."
+                _jpMode ? "settei FAIRU ga mitukarimasen desita." : "Settings file not found."
             );
         }
 
@@ -191,7 +320,7 @@ static partial class Program
         {
             throw new Exception(
                 _jpMode
-                    ? "settei fairu ni ki-baindo ga mitukarimasen desita."
+                    ? "settei FAIRU ni KI-BAINDO ga mitukarimasen desita."
                     : "settings.json was not formatted correctly. Could not find key bindings."
             );
         }
@@ -205,7 +334,7 @@ static partial class Program
         {
             throw new Exception(
                 _jpMode
-                    ? "settei fairu ni furusukuri-n settei ga mitukarimasen desita."
+                    ? "settei FAIRU ni FURUSUKURI-N settei ga mitukarimasen desita."
                     : "settings.json was not formatted correctly. Could not find fullscreen setting."
             );
         }
@@ -291,7 +420,7 @@ static partial class Program
         {
             Console.WriteLine(
                 _jpMode
-                    ? $"ta-getto ga mitukarimasita: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
+                    ? $"TA-GETTO ga mitukarimasita: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
                     : $"Target area found: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
             );
         }

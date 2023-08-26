@@ -90,6 +90,20 @@ internal sealed class ReadonlyImage
         src.UnlockBits(data);
     }
 
+    public ReadonlyImage Crop(int left, int top, int width, int height)
+    {
+        ReadonlyImage cropped = new ReadonlyImage(width, height);
+        for (int i = 0; i < Math.Min(width, Width - left); i++)
+        {
+            for (int j = 0; j < Math.Min(height, Height - top); j++)
+            {
+                cropped[i, j] = this[left + i, top + j];
+            }
+        }
+
+        return cropped;
+    }
+
     public ReadonlyImage ShrinkBy(int factor)
     {
         ReadonlyImage shrunk = new ReadonlyImage(Width / factor, Height / factor);
@@ -175,4 +189,6 @@ internal sealed class ReadonlyImage
         bmp.Save(path);
         bmp.Dispose();
     }
+
+    public ARGBColor[] ToArray() => (ARGBColor[])_pixels.Clone();
 }

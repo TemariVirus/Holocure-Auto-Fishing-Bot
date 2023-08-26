@@ -74,15 +74,20 @@ internal static partial class Program
 
         int width = rect.Right - rect.Left;
         int height = rect.Bottom - rect.Top;
-        if (_windowWidth !=  width || _windowHeight != height)
+        if (_windowWidth != width || _windowHeight != height)
         {
             _windowWidth = width;
             _windowHeight = height;
-            Console.WriteLine(_jpMode ? $"HoloCure no mado ha {width} x {height} ni saremasita" : $"HoloCure window was resized to {width} x {height}");
+            Console.WriteLine(
+                _jpMode
+                    ? $"HoloCure no mado ha {width} x {height} ni saremasita"
+                    : $"HoloCure window was resized to {width} x {height}"
+            );
 
-            // Invalidate target position
+            // Invalidate target position and capture
             _targetLeft = -1;
             _targetTop = -1;
+            _lastCapture = null;
         }
 
         width -= GRACE;
@@ -112,7 +117,7 @@ internal static partial class Program
     }
 
     // Always behaves as if the window is 640 x 360
-    private static ReadonlyImage CaptureHolocureWindow(
+    public static ReadonlyImage CaptureHolocureWindow(
         int left = 0,
         int top = 0,
         int width = -1,
@@ -122,29 +127,46 @@ internal static partial class Program
         Rect rect = GetWindowRectUnscaled();
         _resolution = GetHolocureResolution(rect);
 
-        rect.Left += left * _resolution;
-        rect.Top += top * _resolution;
-
-        if (width < 0)
-        {
-            width = 640;
-        }
-        if (height < 0)
-        {
-            height = 360;
-        }
+        left *= _resolution;
+        top *= _resolution;
         width *= _resolution;
         height *= _resolution;
 
-        Bitmap bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-        Graphics graphics = Graphics.FromImage(bmp);
-        IntPtr hdcBitmap = graphics.GetHdc();
-        IntPtr hdcWindow = GetWindowDC(_windowHandle);
-        BitBlt(hdcBitmap, 0, 0, width, height, hdcWindow, rect.Left, rect.Top, 0x00CC0020);
+        if (width < 0)
+        {
+            width = _windowWidth;
+        }
+        if (height < 0)
+        {
+            height = _windowHeight;
+        }
 
-        graphics.ReleaseHdc(hdcBitmap);
-        ReleaseDC(_windowHandle, hdcWindow);
+        if (_hardwareAccelerated && _lastCapture != null)
+        {
+            return _lastCapture.Crop(left, top, width, height);
+        }
 
-        return new ReadonlyImage(bmp).ShrinkBy(_resolution);
+        if (_hardwareAccelerated)
+        {
+            Bitmap bmp = new Bitmap(_windowWidth, _windowHeight, PixelFormat.Format32bppArgb);
+            Graphics graphics = Graphics.FromImage(bmp);
+            graphics.CopyFromScreen(rect.Left, rect.Top, 0, 0, bmp.Size);
+            ReadonlyImage capture = new ReadonlyImage(bmp).ShrinkBy(_resolution);
+            _lastCapture = capture;
+
+            return capture.Crop(left, top, width, height);
+        }
+        else
+        {
+            Bitmap bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            Graphics graphics = Graphics.FromImage(bmp);
+            IntPtr hdcBitmap = graphics.GetHdc();
+            IntPtr hdcWindow = GetWindowDC(_windowHandle);
+            BitBlt(hdcBitmap, 0, 0, width, height, hdcWindow, left, top, 0x00CC0020);
+
+            graphics.ReleaseHdc(hdcBitmap);
+            ReleaseDC(_windowHandle, hdcWindow);
+            return new ReadonlyImage(bmp).ShrinkBy(_resolution);
+        }
     }
 }
