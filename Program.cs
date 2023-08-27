@@ -224,10 +224,8 @@ static partial class Program
                     : "settings.json was not formatted correctly. Could not find key bindings."
             );
         }
-        string[] buttons = buttonsMatch.Groups[1].Value
-            .Split(',')
-            .Select(s => s.Trim(' ', '"'))
-            .ToArray();
+        string buttonsStr = buttonsMatch.Groups[1].Value.Trim();
+        string[] buttons = buttonsStr.Split(',').Select(s => s.Trim(' ', '"')).ToArray();
 
         Match fullscreenMatch = Regex.Match(
             jsonText,
@@ -242,14 +240,17 @@ static partial class Program
                     : "settings.json was not formatted correctly. Could not find fullscreen setting."
             );
         }
+        string fullscreenStr = fullscreenMatch.Groups[1].Value.Trim();
         Console.WriteLine(
             _jpMode
-                ? $"furusukuri-n settei: {fullscreenMatch.Groups[1].Value}"
-                : $"Full screen setting: {fullscreenMatch.Groups[1].Value}"
+                ? $"furusukuri-n settei: {fullscreenStr}"
+                : $"Full screen setting: {fullscreenStr}"
         );
         bool fullscreen;
         bool isFullscreenNum = double.TryParse(
-            fullscreenMatch.Groups[1].Value,
+            fullscreenStr,
+            NumberStyles.Any,
+            CultureInfo.InvariantCulture,
             out double fullscreenNum
         );
         if (isFullscreenNum)
@@ -258,7 +259,7 @@ static partial class Program
         }
         else
         {
-            fullscreen = bool.Parse(fullscreenMatch.Groups[1].Value);
+            fullscreen = bool.Parse(fullscreenStr);
         }
 
         return new Settings(buttons, fullscreen);
