@@ -7,6 +7,8 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 
+// TODO: Check out OBS windows 10 capture method
+
 internal readonly struct Settings
 {
     public string[] Buttons { get; }
@@ -190,10 +192,8 @@ static partial class Program
 
     private static void ExceptionHandler(object sender, UnhandledExceptionEventArgs args)
     {
-        Console.WriteLine(
-            $"\n{args.ExceptionObject}\n\n"
-                + (_jpMode ? "KI- wo osite syuuryou." : "Press any key to exit.")
-        );
+        Console.WriteLine($"\n{args.ExceptionObject}\n");
+        Console.WriteLine(_jpMode ? "KI- wo osite syuuryou." : "Press any key to exit.");
         Console.ReadKey();
         Environment.Exit(1);
     }
@@ -234,13 +234,24 @@ static partial class Program
                     : "settings.json was not formatted correctly. Could not find fullscreen setting."
             );
         }
+        Console.WriteLine(
+            _jpMode
+                ? $"furusukuri-n settei: {fullscreenMatch.Groups[1].Value}"
+                : $"Full screen setting: {fullscreenMatch.Groups[1].Value}"
+        );
+        bool fullscreen;
         bool isFullscreenNum = double.TryParse(
             fullscreenMatch.Groups[1].Value,
             out double fullscreenNum
         );
-        bool fullscreen = isFullscreenNum
-            ? fullscreenNum != 0.0
-            : bool.Parse(fullscreenMatch.Groups[1].Value);
+        if (isFullscreenNum)
+        {
+            fullscreen = fullscreenNum != 0.0;
+        }
+        else
+        {
+            fullscreen = bool.Parse(fullscreenMatch.Groups[1].Value);
+        }
 
         return new Settings(buttons, fullscreen);
     }
