@@ -3,7 +3,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 
-internal static partial class Program
+static partial class Program
 {
     [StructLayout(LayoutKind.Sequential)]
     private struct Rect
@@ -84,10 +84,9 @@ internal static partial class Program
                     : $"HoloCure window was resized to {width} x {height}"
             );
 
-            // Invalidate target position and capture
+            // Invalidate target position
             _targetLeft = -1;
             _targetTop = -1;
-            _lastCapture = null;
         }
 
         width -= GRACE;
@@ -117,7 +116,7 @@ internal static partial class Program
     }
 
     // Always behaves as if the window is 640 x 360
-    public static ReadonlyImage CaptureHolocureWindow(
+    private static ReadonlyImage CaptureHolocureWindow(
         int left = 0,
         int top = 0,
         int width = -1,
@@ -141,20 +140,17 @@ internal static partial class Program
             height = _windowHeight;
         }
 
-        if (_hardwareAccelerated && _lastCapture != null)
-        {
-            return _lastCapture.Crop(left, top, width, height);
-        }
-
         if (_hardwareAccelerated)
         {
-            Bitmap bmp = new Bitmap(_windowWidth, _windowHeight, PixelFormat.Format32bppArgb);
-            Graphics graphics = Graphics.FromImage(bmp);
-            graphics.CopyFromScreen(rect.Left, rect.Top, 0, 0, bmp.Size);
-            ReadonlyImage capture = new ReadonlyImage(bmp).ShrinkBy(_resolution);
-            _lastCapture = capture;
+            if (_lastSS == null)
+            {
+                Bitmap bmp = new Bitmap(_windowWidth, _windowHeight, PixelFormat.Format32bppArgb);
+                Graphics graphics = Graphics.FromImage(bmp);
+                graphics.CopyFromScreen(rect.Left, rect.Top, 0, 0, bmp.Size);
+                _lastSS = new ReadonlyImage(bmp);
+            }
 
-            return capture.Crop(left, top, width, height);
+            return _lastSS.Crop(left, top, width, height).ShrinkBy(_resolution);
         }
         else
         {
@@ -168,5 +164,10 @@ internal static partial class Program
             ReleaseDC(_windowHandle, hdcWindow);
             return new ReadonlyImage(bmp).ShrinkBy(_resolution);
         }
+    }
+
+    private static void InvalidateLastSS()
+    {
+        _lastSS = null;
     }
 }

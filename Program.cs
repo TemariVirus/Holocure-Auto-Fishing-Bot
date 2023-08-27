@@ -35,7 +35,7 @@ static partial class Program
     private static int _resolution;
 
     private static readonly IntPtr _windowHandle;
-    private static ReadonlyImage _lastCapture = null;
+    private static ReadonlyImage _lastSS = null;
     private static int _windowWidth = -1;
     private static int _windowHeight = -1;
     private static int _targetLeft = -1;
@@ -108,6 +108,8 @@ static partial class Program
 
     private static void Main()
     {
+        // ActivateDirectXWorkaround();
+
         Console.WriteLine(_jpMode ? "BOTTO wo kidou simasita." : "Bot started.");
         Console.WriteLine(_jpMode ? "CTRL + C wo osite teisi." : "Press ctrl + C to stop.");
         if (_hardwareAccelerated) { }
@@ -129,9 +131,6 @@ static partial class Program
         Stopwatch waitSw = Stopwatch.StartNew();
         while (true)
         {
-            // Invalidate capture
-            _lastCapture = null;
-
             if (!playing)
             {
                 perfSw.Stop();
@@ -144,6 +143,8 @@ static partial class Program
                 perfSw.Start();
                 continue;
             }
+
+            InvalidateLastSS();
 
             if (_targetLeft >= 0 && _targetTop >= 0)
             {
@@ -179,10 +180,7 @@ static partial class Program
                         ? "20byou inai ni NO-TU ga mitukarimasen desita. kore ga tudukeru baai ha, HoloCure no kaizoudo wo tiisaku site kudasai. MINIGE-MU wo saikidou simasu."
                         : "No notes detected in 20 seconds. If this continues, try setting HoloCure to a smaller resolution. Restarting minigame."
                 );
-                if (!_hardwareAccelerated)
-                {
-                    ActivateDirectXWorkaround();
-                }
+                ActivateDirectXWorkaround();
 
                 playing = false;
                 timeoutSw.Restart();
@@ -344,6 +342,11 @@ static partial class Program
 
     private static void ActivateDirectXWorkaround()
     {
+        if (_hardwareAccelerated)
+        {
+            return;
+        }
+
         _hardwareAccelerated = true;
 
         _notes = new Note[]
@@ -384,13 +387,13 @@ static partial class Program
         Console.WriteLine(
             _jpMode
                 ? "3. ika no settei wo dekiru kagiri OFU ni site kudasai:"
-                    + "\n\ta. UXINDOU GE-MU no saitekika"
-                    + "\n\tb. kahen RIFURESSYU RE-TO"
-                    + "\n\tc. zidou HDR"
+                    + "\n    a. UXINDOU GE-MU no saitekika"
+                    + "\n    b. kahen RIFURESSYU RE-TO"
+                    + "\n    c. zidou HDR"
                 : "3. Disable the following (if the setting(s) can be found):"
-                    + "\n\ta. Optimizations for windowed games"
-                    + "\n\tb. Variable refresh rate"
-                    + "\n\tc. Auto HDR"
+                    + "\n    a. Optimizations for windowed games"
+                    + "\n    b. Variable refresh rate"
+                    + "\n    c. Auto HDR"
         );
         Console.WriteLine(
             _jpMode
