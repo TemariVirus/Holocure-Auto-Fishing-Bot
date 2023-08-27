@@ -213,7 +213,11 @@ static partial class Program
 
         string jsonText = File.ReadAllText(filePath);
 
-        Match buttonsMatch = Regex.Match(jsonText, @"""theButtons"":\[(""\w+""(,""\w+""){5})\]");
+        Match buttonsMatch = Regex.Match(
+            jsonText,
+            @"""theButtons"":\[(""\w+""(,""\w+""){5})\]",
+            RegexOptions.IgnoreCase
+        );
         if (!buttonsMatch.Success)
         {
             throw new Exception(
@@ -227,7 +231,11 @@ static partial class Program
             .Select(s => s.Trim(' ', '"'))
             .ToArray();
 
-        Match fullscreenMatch = Regex.Match(jsonText, @"""fullscreen"":(\d+\.\d+|\d+|true|false)");
+        Match fullscreenMatch = Regex.Match(
+            jsonText,
+            @"""fullscreen"":(\d+\.\d+|\d+|true|false)",
+            RegexOptions.IgnoreCase
+        );
         if (!fullscreenMatch.Success)
         {
             throw new Exception(
