@@ -38,6 +38,27 @@ internal sealed class ReadonlyImage
     public int Height { get; }
     private readonly ARGBColor[] _pixels;
 
+    private int _opaqueCount = -1;
+    public int OpaqueCount
+    {
+        get
+        {
+            if (_opaqueCount == -1)
+            {
+                _opaqueCount = 0;
+                foreach (ARGBColor color in _pixels)
+                {
+                    if (color.A == 255)
+                    {
+                        _opaqueCount++;
+                    }
+                }
+            }
+
+            return _opaqueCount;
+        }
+    }
+
     public ARGBColor this[int x, int y]
     {
         get => _pixels[y * Width + x];
@@ -125,6 +146,9 @@ internal sealed class ReadonlyImage
         double threshold = 0.108
     )
     {
+        threshold *= other.OpaqueCount;
+        double sum = 0;
+
         for (int i = 0; i < other.Width; i++)
         {
             for (int j = 0; j < other.Height; j++)
@@ -135,7 +159,8 @@ internal sealed class ReadonlyImage
                 }
 
                 double diff = this[left + i, top + j].ColorDiff(other[i, j]);
-                if (diff >= threshold)
+                sum += diff;
+                if (sum >= threshold)
                 {
                     return false;
                 }
