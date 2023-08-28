@@ -318,8 +318,8 @@ static partial class Program
 
     private static void CheckGameFisished(ref bool playing)
     {
-        ReadonlyImage okArea = CaptureHolocureWindow(_targetLeft - 63, _targetTop + 32, 11, 9);
-        if (!okArea.CroppedEquals(_okImage))
+        ReadonlyImage okArea = CaptureHolocureWindow(_targetLeft - 73, _targetTop + 17, 31, 39);
+        if (okArea.Find(_okImage) == (-1, -1))
         {
             return;
         }
