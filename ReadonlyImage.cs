@@ -17,42 +17,32 @@ internal readonly struct ARGBColor
         B = (byte)blue;
     }
 
-    public double ColorDiff(ARGBColor other)
+    public float ColorDiff(ARGBColor other)
     {
         int dR = Math.Abs(R - other.R);
         int dG = Math.Abs(G - other.G);
         int dB = Math.Abs(B - other.B);
         // Scale between 0 and 1
-        return (double)(dR + dG + dB) / (3 * 255);
-    }
-
-    public override string ToString()
-    {
-        return $"R: {R}, G: {G}, B: {B}, A: {A}";
+        return (float)(dR + dG + dB) / (3 * 255);
     }
 }
 
 internal sealed class ReadonlyImage
 {
+    private readonly ARGBColor[] _pixels;
+    private int _opaqueCount = -1;
+
+    #region Properties
     public int Width { get; }
     public int Height { get; }
-    private readonly ARGBColor[] _pixels;
 
-    private int _opaqueCount = -1;
     public int OpaqueCount
     {
         get
         {
             if (_opaqueCount == -1)
             {
-                _opaqueCount = 0;
-                foreach (ARGBColor color in _pixels)
-                {
-                    if (color.A == 255)
-                    {
-                        _opaqueCount++;
-                    }
-                }
+                InitOpaqueCount();
             }
 
             return _opaqueCount;
@@ -64,6 +54,7 @@ internal sealed class ReadonlyImage
         get => _pixels[y * Width + x];
         set => _pixels[y * Width + x] = value;
     }
+    #endregion
 
     private ReadonlyImage(int width, int height)
     {
@@ -73,21 +64,10 @@ internal sealed class ReadonlyImage
     }
 
     public ReadonlyImage(Bitmap source)
+        : this(source.Width, source.Height)
     {
-        Width = source.Width;
-        Height = source.Height;
-        _pixels = new ARGBColor[Width * Height];
-        CopyFromBitmap(source);
-        source.Dispose();
-    }
-
-    public ReadonlyImage(string filename)
-        : this(new Bitmap(filename)) { }
-
-    private void CopyFromBitmap(Bitmap src)
-    {
-        BitmapData data = src.LockBits(
-            new Rectangle(0, 0, src.Width, src.Height),
+        BitmapData data = source.LockBits(
+            new Rectangle(0, 0, source.Width, source.Height),
             ImageLockMode.ReadOnly,
             PixelFormat.Format32bppArgb
         );
@@ -102,21 +82,37 @@ internal sealed class ReadonlyImage
                         ptrCurrentRow[x * 4 + 3],
                         ptrCurrentRow[x * 4 + 2],
                         ptrCurrentRow[x * 4 + 1],
-                        ptrCurrentRow[x * 4]
+                        ptrCurrentRow[x * 4 + 0]
                     );
                 }
             }
         }
 
-        src.UnlockBits(data);
+        source.UnlockBits(data);
+        source.Dispose();
+    }
+
+    public ReadonlyImage(string filename)
+        : this(new Bitmap(filename)) { }
+
+    private void InitOpaqueCount()
+    {
+        _opaqueCount = 0;
+        foreach (ARGBColor color in _pixels)
+        {
+            if (color.A == 255)
+            {
+                _opaqueCount++;
+            }
+        }
     }
 
     public ReadonlyImage Crop(int left, int top, int width, int height)
     {
         ReadonlyImage cropped = new ReadonlyImage(width, height);
-        for (int i = 0; i < Math.Min(width, Width - left); i++)
+        for (int i = Math.Max(-left, 0); i < Math.Min(width, Width - left); i++)
         {
-            for (int j = 0; j < Math.Min(height, Height - top); j++)
+            for (int j = Math.Max(-top, 0); j < Math.Min(height, Height - top); j++)
             {
                 cropped[i, j] = this[left + i, top + j];
             }
@@ -143,12 +139,12 @@ internal sealed class ReadonlyImage
         ReadonlyImage other,
         int left = 0,
         int top = 0,
-        double threshold = 0.108
+        float threshold = 0.108f
     )
     {
         threshold *= other.OpaqueCount;
-        double sum = 0;
 
+        float sum = 0;
         for (int i = 0; i < other.Width; i++)
         {
             for (int j = 0; j < other.Height; j++)
@@ -158,9 +154,8 @@ internal sealed class ReadonlyImage
                     continue;
                 }
 
-                double diff = this[left + i, top + j].ColorDiff(other[i, j]);
-                sum += diff;
-                if (sum >= threshold)
+                sum += this[left + i, top + j].ColorDiff(other[i, j]);
+                if (sum > threshold)
                 {
                     return false;
                 }
@@ -214,6 +209,4 @@ internal sealed class ReadonlyImage
         bmp.Save(path);
         bmp.Dispose();
     }
-
-    public ARGBColor[] ToArray() => (ARGBColor[])_pixels.Clone();
 }

@@ -1,5 +1,6 @@
 internal readonly struct Note
 {
+    #region Properties
     public ReadonlyImage Image { get; }
     public string Button { get; }
 
@@ -7,6 +8,7 @@ internal readonly struct Note
     public int Top { get; }
     public int Right { get; }
     public int Bottom { get; }
+    #endregion
 
     public Note(ReadonlyImage image, string button, int left, int top, int right, int bottom)
     {

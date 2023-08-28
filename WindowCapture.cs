@@ -14,6 +14,7 @@ static partial class Program
         public int Bottom;
     }
 
+    #region DLL Imports
     [DllImport("user32.dll")]
     private static extern IntPtr GetWindowRect(IntPtr hWnd, ref Rect rect);
 
@@ -38,6 +39,7 @@ static partial class Program
 
     [DllImport("gdi32.dll")]
     private static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+    #endregion
 
     private static readonly double _scaleFactor = GetScalingFactor();
 
@@ -79,14 +81,12 @@ static partial class Program
             _windowWidth = width;
             _windowHeight = height;
             Console.WriteLine(
-                _jpMode
+                _isLocaleJp
                     ? $"HoloCure no mado ha {width} x {height} ni saremasita"
                     : $"HoloCure window was resized to {width} x {height}"
             );
 
-            // Invalidate target position
-            _targetLeft = -1;
-            _targetTop = -1;
+            InvalidateTargetPos();
         }
 
         width -= GRACE;
@@ -95,21 +95,21 @@ static partial class Program
         {
             return 1;
         }
-        else if (width <= 1280 && height <= 720)
+        if (width <= 1280 && height <= 720)
         {
             return 2;
         }
-        else if (width <= 1920 && height <= 1080)
+        if (width <= 1920 && height <= 1080)
         {
             return 3;
         }
-        else if (width <= 2560 && height <= 1440)
+        if (width <= 2560 && height <= 1440)
         {
             return 4;
         }
 
         throw new Exception(
-            _jpMode
+            _isLocaleJp
                 ? "kaizoudo ga fumei desita. HoloCure no kaizoudo wo tiisaku shite mite kudasai."
                 : "Could not determine resolution. Try making HoloCure's resolution smaller."
         );

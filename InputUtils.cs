@@ -5,9 +5,12 @@ using System.Threading;
 
 internal static class InputUtils
 {
+    #region DLL Imports
     [DllImport("user32.dll")]
     private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+    #endregion
 
+    #region Fields
     private static readonly Dictionary<string, uint> _keyMapping = new Dictionary<string, uint>
     {
         { "ENTER", 0x0D },
@@ -56,15 +59,16 @@ internal static class InputUtils
         { "Y", 0x59 },
         { "Z", 0x5A },
     };
+    #endregion
 
-    public static void SendKey(IntPtr hWnd, string key)
+    public static void SendKeyPress(IntPtr hWnd, string key, int duration = 33)
     {
         const uint WM_KEYDOWN = 0x0100;
         const uint WM_KEYUP = 0x0101;
 
         IntPtr key_code = (IntPtr)_keyMapping[key];
         PostMessage(hWnd, WM_KEYDOWN, key_code, IntPtr.Zero);
-        Thread.Sleep(33);
+        Thread.Sleep(duration);
         PostMessage(hWnd, WM_KEYUP, key_code, IntPtr.Zero);
     }
 }

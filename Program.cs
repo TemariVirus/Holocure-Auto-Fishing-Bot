@@ -23,9 +23,12 @@ internal readonly struct Settings
 
 static partial class Program
 {
+    #region DLL Imports
     [DllImport("user32")]
     private static extern bool SetForegroundWindow(IntPtr hwnd);
+    #endregion
 
+    #region Fields
     private static readonly ReadonlyImage _targetImage = new ReadonlyImage("img/target circle.png");
     private static readonly ReadonlyImage _okImage = new ReadonlyImage("img/ok.png");
 
@@ -41,9 +44,10 @@ static partial class Program
     private static int _targetLeft = -1;
     private static int _targetTop = -1;
 
-    private static readonly bool _jpMode =
+    private static readonly bool _isLocaleJp =
         CultureInfo.CurrentCulture.ThreeLetterISOLanguageName.ToLower() == "jpn";
     private static bool _hardwareAccelerated = false;
+    #endregion
 
     static Program()
     {
@@ -55,38 +59,30 @@ static partial class Program
         // Setup
         try
         {
-            _settings = GetHolocureSettings();
+            _settings = GetSettings();
             Console.WriteLine(
-                _jpMode ? "HoloCure settei ga mitukarimasita." : "Holocure settings found."
+                _isLocaleJp ? "HoloCure settei ga mitukarimasita." : "Holocure settings found."
             );
             Console.WriteLine(
-                (_jpMode ? "KI-BAINDO: " : "Buttons: ")
+                (_isLocaleJp ? "KI-BAINDO: " : "Buttons: ")
                     + $"[{string.Join(", ", _settings.Buttons)}]"
             );
 
-            _windowHandle = GetHolocureWindow();
+            _windowHandle = GetWindow();
             Console.WriteLine(
-                _jpMode ? "HoloCure no mado ga mitukarimasita." : "Holocure window found."
+                _isLocaleJp ? "HoloCure no mado ga mitukarimasita." : "Holocure window found."
             );
 
             if (_settings.IsFullscreen)
             {
                 throw new Exception(
-                    _jpMode
+                    _isLocaleJp
                         ? "FURUSUKURI-N wo OFU ni site kudasai."
                         : "Please turn off full screen."
                 );
             }
 
             _resolution = GetHolocureResolution(GetWindowRectUnscaled());
-            string res = new string[] { "640 x 360", "1280 x 720", "1920 x 1080", "2560 x 1440" }[
-                _resolution - 1
-            ];
-            Console.WriteLine(
-                _jpMode
-                    ? $"HoloCure no kaizoudo ga mitukarimasita: {res}"
-                    : $"Detected HoloCure resolution: {res}"
-            );
 
             _notes = new Note[]
             {
@@ -106,17 +102,14 @@ static partial class Program
         }
     }
 
-    private static void Main()
+    private static void Main(string[] args)
     {
-        // ActivateDirectXWorkaround();
-
-        Console.WriteLine(_jpMode ? "BOTTO wo kidou simasita." : "Bot started.");
-        Console.WriteLine(_jpMode ? "CTRL + C wo osite teisi." : "Press ctrl + C to stop.");
-        if (_hardwareAccelerated) { }
-        else
+        Console.WriteLine(_isLocaleJp ? "BOTTO wo kidou simasita." : "Bot started.");
+        Console.WriteLine(_isLocaleJp ? "CTRL + C wo osite teisi." : "Press ctrl + C to stop.");
+        if (!_hardwareAccelerated)
         {
             Console.WriteLine(
-                _jpMode
+                _isLocaleJp
                     ? "MINIGE-MU ga gamengai ni denai you ni site kudasai (hoka no mado ni kaburarete mo daizyoubu desu)."
                     : "Please ensure that the minigame is within view at all times (you can still have other windows on top of it)."
             );
@@ -128,31 +121,41 @@ static partial class Program
         int cycleCount = 0;
         Stopwatch perfSw = Stopwatch.StartNew();
         Stopwatch timeoutSw = Stopwatch.StartNew();
-        Stopwatch waitSw = Stopwatch.StartNew();
         while (true)
         {
+            InvalidateLastSS();
+
+            // Restart minigame if not playing
             if (!playing)
             {
                 perfSw.Stop();
 
-                StartFishingGame();
+                StartGame();
                 timeoutSw.Restart();
-                waitSw.Restart();
                 playing = true;
 
                 perfSw.Start();
                 continue;
             }
 
-            InvalidateLastSS();
-
-            if (_targetLeft >= 0 && _targetTop >= 0)
+            // Find target area if not found yet
+            if (_targetLeft < 0 || _targetTop < 0)
             {
-                PlayFishingGame(ref playing, in timeoutSw);
+                if (FindTarget())
+                {
+                    timeoutSw.Restart();
+                }
+            }
+
+            // Play game
+            bool noteFound = PlayGame();
+            if (noteFound)
+            {
+                timeoutSw.Restart();
             }
             else
             {
-                FindTargetArea();
+                playing = !IsGameFisished();
             }
 
             // Aim for a little over 60 cycles per second to match framerate
@@ -176,7 +179,7 @@ static partial class Program
             if (timeoutSw.ElapsedMilliseconds >= 20_000)
             {
                 Console.WriteLine(
-                    _jpMode
+                    _isLocaleJp
                         ? "20byou inai ni NO-TU ga mitukarimasen desita. kore ga tudukeru baai ha, HoloCure no kaizoudo wo tiisaku site kudasai. MINIGE-MU wo saikidou simasu."
                         : "No notes detected in 20 seconds. If this continues, try setting HoloCure to a smaller resolution. Restarting minigame."
                 );
@@ -191,19 +194,19 @@ static partial class Program
     private static void ExceptionHandler(object sender, UnhandledExceptionEventArgs args)
     {
         Console.WriteLine($"\n{args.ExceptionObject}\n");
-        Console.WriteLine(_jpMode ? "KI- wo osite syuuryou." : "Press any key to exit.");
+        Console.WriteLine(_isLocaleJp ? "KI- wo osite syuuryou." : "Press any key to exit.");
         Console.ReadKey();
         Environment.Exit(1);
     }
 
-    private static Settings GetHolocureSettings()
+    private static Settings GetSettings()
     {
         string userPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         string filePath = $"{userPath}\\AppData\\Local\\HoloCure\\settings.json";
         if (!File.Exists(filePath))
         {
             throw new FileNotFoundException(
-                _jpMode ? "settei FAIRU ga mitukarimasen desita." : "Settings file not found."
+                _isLocaleJp ? "settei FAIRU ga mitukarimasen desita." : "Settings file not found."
             );
         }
 
@@ -217,7 +220,7 @@ static partial class Program
         if (!buttonsMatch.Success)
         {
             throw new Exception(
-                _jpMode
+                _isLocaleJp
                     ? "settei FAIRU ni KI-BAINDO ga mitukarimasen desita."
                     : "settings.json was not formatted correctly. Could not find key bindings."
             );
@@ -233,14 +236,14 @@ static partial class Program
         if (!fullscreenMatch.Success)
         {
             throw new Exception(
-                _jpMode
+                _isLocaleJp
                     ? "settei FAIRU ni FURUSUKURI-N settei ga mitukarimasen desita."
                     : "settings.json was not formatted correctly. Could not find fullscreen setting."
             );
         }
         string fullscreenStr = fullscreenMatch.Groups[1].Value.Trim();
         Console.WriteLine(
-            _jpMode
+            _isLocaleJp
                 ? $"furusukuri-n settei: {fullscreenStr}"
                 : $"Full screen setting: {fullscreenStr}"
         );
@@ -251,93 +254,81 @@ static partial class Program
             CultureInfo.InvariantCulture,
             out double fullscreenNum
         );
-        if (isFullscreenNum)
-        {
-            fullscreen = fullscreenNum != 0.0;
-        }
-        else
-        {
-            fullscreen = bool.Parse(fullscreenStr);
-        }
+        fullscreen = isFullscreenNum ? fullscreenNum != 0.0 : bool.Parse(fullscreenStr);
 
         return new Settings(buttons, fullscreen);
     }
 
-    private static IntPtr GetHolocureWindow()
+    private static IntPtr GetWindow()
     {
         Process[] processes = Process.GetProcessesByName("holocure");
         if (processes.Length <= 0)
         {
             throw new Exception(
-                _jpMode ? "HoloCure wo kidou site kudasai." : "Please open HoloCure."
+                _isLocaleJp ? "HoloCure wo kidou site kudasai." : "Please open HoloCure."
             );
         }
 
         return processes[0].MainWindowHandle;
     }
 
-    private static void StartFishingGame()
+    private static void StartGame()
     {
         const string KEY = "ENTER";
 
         for (int i = 0; i < 2; i++)
         {
             Console.WriteLine($"Pressing {KEY}");
-            InputUtils.SendKey(_windowHandle, KEY);
+            InputUtils.SendKeyPress(_windowHandle, KEY);
             Thread.Sleep(150);
         }
     }
 
-    private static void PlayFishingGame(ref bool playing, in Stopwatch timeoutSw)
+    private static bool PlayGame()
     {
         int right = _notes.Max(note => note.Right);
         int bottom = _notes.Max(note => note.Bottom);
 
-        bool noteFound = false;
         ReadonlyImage targetArea = CaptureHolocureWindow(_targetLeft, _targetTop, right, bottom);
         foreach (Note note in _notes)
         {
             if (targetArea.ContainsNote(note))
             {
                 Console.WriteLine($"Pressing {note.Button}");
-                InputUtils.SendKey(_windowHandle, note.Button);
-                noteFound = true;
-                break;
+                InputUtils.SendKeyPress(_windowHandle, note.Button);
+                return true;
             }
         }
 
-        if (noteFound)
-        {
-            timeoutSw.Restart();
-        }
-        else
-        {
-            CheckGameFisished(ref playing);
-        }
+        return false;
     }
 
-    private static void CheckGameFisished(ref bool playing)
+    private static bool IsGameFisished()
     {
         ReadonlyImage okArea = CaptureHolocureWindow(_targetLeft - 73, _targetTop + 17, 31, 39);
-        if (okArea.Find(_okImage) == (-1, -1))
-        {
-            return;
-        }
-        playing = false;
+        return okArea.Find(_okImage) != (-1, -1);
     }
 
-    private static void FindTargetArea()
+    private static bool FindTarget()
     {
         ReadonlyImage screen = CaptureHolocureWindow();
         (_targetLeft, _targetTop) = screen.Find(_targetImage);
         if (_targetLeft >= 0 && _targetTop >= 0)
         {
             Console.WriteLine(
-                _jpMode
+                _isLocaleJp
                     ? $"TA-GETTO ga mitukarimasita: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
                     : $"Target area found: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
             );
         }
+
+        return _targetLeft == -1 && _targetTop == -1;
+    }
+
+    private static void InvalidateTargetPos()
+    {
+        _targetLeft = -1;
+        _targetTop = -1;
     }
 
     private static void ActivateDirectXWorkaround()
@@ -359,33 +350,33 @@ static partial class Program
         };
 
         Console.WriteLine(
-            _jpMode
+            _isLocaleJp
                 ? "cyuui: HoloCure no mado ha HA-DOUXEA AKUSERARE-SYON ni sareteiru kanousei ga arimasu. ippan no SUKURI-NSYOTTO houhou ni tayorimasu. BOTTO ha osoku narimasu. HoloCure no mado ga kaburarenai you ni site kudasai."
                 : "Note: The HoloCure window may be hardware accelerated. Resorting to taking normal screenshots. The bot will be slower, and please make sure that the HoloCure window always stays on top."
         );
         Console.WriteLine(
-            _jpMode
+            _isLocaleJp
                 ? "syousai zyouhou: https://support.microsoft.com/ja-jp/windows/3f006843-2c7e-4ed0-9a5e-f9389e535952"
                 : "More info: https://support.microsoft.com/windows/3f006843-2c7e-4ed0-9a5e-f9389e535952"
         );
         Console.WriteLine();
         Console.WriteLine(
-            _jpMode
+            _isLocaleJp
                 ? "mosimo haikei de hatarakitai baai ha, ika no sizi wo tamesite kudasai:"
                 : "If you want to run HoloCure in the background instead, you can try these steps:"
         );
         Console.WriteLine(
-            _jpMode
+            _isLocaleJp
                 ? "1. BOTTO wo kanrisya tosite zikkou site mite kudasai. mukou no baai ha, SUTEPPU 2 ni susunde kudasai."
                 : "1. Re-run the bot as administrator. If that doesn't work, proceed to step 2."
         );
         Console.WriteLine(
-            _jpMode
+            _isLocaleJp
                 ? "2. settei de, \"SISUTEMU\" > \"hyouzi\" > \"GURAFIKKUSU\" > \"kitei no GURAFIKKUSU settei wo henkou suru\" wo sentaku site kudasai."
                 : "2. Open settings, and navigate to System > Display > Graphics > Default graphics settings."
         );
         Console.WriteLine(
-            _jpMode
+            _isLocaleJp
                 ? "3. ika no settei wo dekiru kagiri OFU ni site kudasai:"
                     + "\n    a. UXINDOU GE-MU no saitekika"
                     + "\n    b. kahen RIFURESSYU RE-TO"
@@ -396,7 +387,7 @@ static partial class Program
                     + "\n    c. Auto HDR"
         );
         Console.WriteLine(
-            _jpMode
+            _isLocaleJp
                 ? "4. HoloCure wo saikidou site, mou itido tamesite kudasai. mukou no baai ha, mousi wake gozaimasen desita :("
                 : "4. Restart Holocure and try again. If that doesn't work, then I'm out of tricks :("
         );
