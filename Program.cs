@@ -61,6 +61,7 @@ namespace Holocure_Auto_Fishing_Bot
         private static readonly bool _isLocaleJp =
             CultureInfo.CurrentCulture.ThreeLetterISOLanguageName.ToLower() == "jpn";
         private static bool _hardwareAccelerated = false;
+        private static bool _captureWorks = false;
 
         private static readonly string _optionsMsg = _isLocaleJp
             ? "\"C\" KI- wo oshite KONFIGU wo hiraku"
@@ -255,7 +256,10 @@ namespace Holocure_Auto_Fishing_Bot
                             ? "20byou inai ni NO-TO ga mitukarimasen desita. kore ga tudukeru baai ha, HoloCure no kaizoudo wo tiisaku site kudasai. MINIGE-MU wo saikidou simasu."
                             : "No notes detected in 20 seconds. If this continues, try setting HoloCure to a smaller resolution. Restarting minigame."
                     );
-                    ActivateDirectXWorkaround(!_hardwareAccelerated);
+                    if (!_captureWorks)
+                    {
+                        ActivateDirectXWorkaround(!_hardwareAccelerated);
+                    }
 
                     playing = false;
                     timeoutSw.Restart();
@@ -508,6 +512,7 @@ namespace Holocure_Auto_Fishing_Bot
                         ? $"TA-GETTO ga mitukarimasita: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
                         : $"Target area found: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
                 );
+                _captureWorks = true;
             }
 
             return _targetLeft == -1 && _targetTop == -1;
