@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -30,13 +31,22 @@ namespace Holocure_Auto_Fishing_Bot
         private static extern bool SetForegroundWindow(IntPtr hwnd);
         #endregion
 
+        #region Constants
+        const string CONFIG_PATH = "config.txt";
+        const int CIRCLE = 0;
+        const int LEFT = 1;
+        const int RIGHT = 2;
+        const int UP = 3;
+        const int DOWN = 4;
+        #endregion
+
         #region Fields
-        private static readonly ReadonlyImage _targetImage = new ReadonlyImage(
+        private static readonly ReadonlyImage _targetImg = new ReadonlyImage(
             "img/target circle.png"
         );
-        private static readonly ReadonlyImage _okImage = new ReadonlyImage("img/ok.png");
+        private static readonly ReadonlyImage _okImg = new ReadonlyImage("img/ok.png");
 
-        private static Note[] _notes;
+        private static readonly Note[] _notes;
 
         private static readonly Settings _settings;
         private static int _resolution;
@@ -53,8 +63,8 @@ namespace Holocure_Auto_Fishing_Bot
         private static bool _hardwareAccelerated = false;
 
         private static readonly string _optionsMsg = _isLocaleJp
-            ? "\"O\" KI- wo oshite settei wo hiraku"
-            : "Press 'o' key for options";
+            ? "\"C\" KI- wo oshite KONFIGU wo hiraku"
+            : "Press 'c' key to open config screen";
         #endregion
 
         static Program()
@@ -83,20 +93,40 @@ namespace Holocure_Auto_Fishing_Bot
 
                 _resolution = GetHolocureResolution(GetWindowRectUnscaled());
 
+                if (!File.Exists(CONFIG_PATH))
+                {
+                    File.WriteAllText(CONFIG_PATH, "");
+                }
+
+                string[] configLines = File.ReadAllLines(CONFIG_PATH);
+                Dictionary<string, string> config = configLines
+                    .Select(line => line.Trim().ToLower())
+                    .Where(line => !line.StartsWith("//") && line.Contains('='))
+                    .ToDictionary(
+                        line => line.Split('=')[0].Trim(),
+                        line => line.Split('=')[1].Trim()
+                    );
+                string circleStr = config.GetOrDefault("circle", "5");
+                string leftStr = config.GetOrDefault("left", "2");
+                string rightStr = config.GetOrDefault("right", "2");
+                string upStr = config.GetOrDefault("up", "3");
+                string downStr = config.GetOrDefault("down", "3");
+                string workaroundStr = config.GetOrDefault("workaround", "false");
+
                 _notes = new Note[]
                 {
                     new Note(
                         new ReadonlyImage("img/circle.png"),
                         _settings.Buttons[0],
-                        5,
+                        int.Parse(circleStr),
                         15,
-                        30,
+                        32,
                         32
                     ),
                     new Note(
                         new ReadonlyImage("img/left.png"),
                         _settings.Buttons[2],
-                        2,
+                        int.Parse(leftStr),
                         14,
                         32,
                         33
@@ -104,15 +134,35 @@ namespace Holocure_Auto_Fishing_Bot
                     new Note(
                         new ReadonlyImage("img/right.png"),
                         _settings.Buttons[3],
-                        2,
+                        int.Parse(rightStr),
                         14,
                         32,
                         33
                     ),
-                    new Note(new ReadonlyImage("img/up.png"), _settings.Buttons[4], 3, 13, 31, 34),
-                    new Note(new ReadonlyImage("img/down.png"), _settings.Buttons[5], 3, 13, 31, 34)
+                    new Note(
+                        new ReadonlyImage("img/up.png"),
+                        _settings.Buttons[4],
+                        int.Parse(upStr),
+                        13,
+                        32,
+                        34
+                    ),
+                    new Note(
+                        new ReadonlyImage("img/down.png"),
+                        _settings.Buttons[5],
+                        int.Parse(downStr),
+                        13,
+                        32,
+                        34
+                    )
                 };
 
+                if (bool.Parse(workaroundStr))
+                {
+                    ActivateDirectXWorkaround(false);
+                }
+
+                WriteConfig();
                 Console.WriteLine();
             }
             catch (Exception e)
@@ -143,7 +193,9 @@ namespace Holocure_Auto_Fishing_Bot
             Stopwatch timeoutSw = Stopwatch.StartNew();
             while (true)
             {
+                perfSw.Stop();
                 HandleKeys();
+                perfSw.Start();
 
                 InvalidateLastSS();
 
@@ -200,10 +252,10 @@ namespace Holocure_Auto_Fishing_Bot
                 {
                     PrintLine(
                         _isLocaleJp
-                            ? "20byou inai ni NO-TU ga mitukarimasen desita. kore ga tudukeru baai ha, HoloCure no kaizoudo wo tiisaku site kudasai. MINIGE-MU wo saikidou simasu."
+                            ? "20byou inai ni NO-TO ga mitukarimasen desita. kore ga tudukeru baai ha, HoloCure no kaizoudo wo tiisaku site kudasai. MINIGE-MU wo saikidou simasu."
                             : "No notes detected in 20 seconds. If this continues, try setting HoloCure to a smaller resolution. Restarting minigame."
                     );
-                    ActivateDirectXWorkaround();
+                    ActivateDirectXWorkaround(!_hardwareAccelerated);
 
                     playing = false;
                     timeoutSw.Restart();
@@ -226,32 +278,104 @@ namespace Holocure_Auto_Fishing_Bot
 
         private static void PrintLine(object obj)
         {
-            Console.WriteLine(obj);
-            return;
             Console.CursorTop = Math.Max(0, Console.CursorTop - 2);
             Console.WriteLine(obj.ToString().PadRight(_optionsMsg.Length));
             Console.WriteLine("".PadRight(_optionsMsg.Length));
             Console.WriteLine(_optionsMsg);
         }
 
+        private static void WriteConfig()
+        {
+            File.WriteAllText(
+                CONFIG_PATH,
+                "// X offsets (lower = earlier, higher = later)\n"
+                    + $"circle = {_notes[CIRCLE].Left}\n"
+                    + $"left = {_notes[LEFT].Left}\n"
+                    + $"right = {_notes[RIGHT].Left}\n"
+                    + $"up = {_notes[UP].Left}\n"
+                    + $"down = {_notes[DOWN].Left}\n"
+                    + "\n"
+                    + $"workaround = {_hardwareAccelerated}"
+            );
+        }
+
         private static void HandleKeys()
         {
-            return;
             while (Console.KeyAvailable)
             {
                 ConsoleKeyInfo info = Console.ReadKey(true);
-                if (info.KeyChar == 'O' || info.KeyChar == 'o')
+                if (info.KeyChar == 'c' || info.KeyChar == 'c')
                 {
-                    SettingsScreen();
+                    ConfigScreen();
                 }
             }
         }
 
-        private static void SettingsScreen()
+        private static void ConfigScreen()
         {
             Console.CursorTop = Math.Max(0, Console.CursorTop - 1);
             Console.Write("".PadRight(_optionsMsg.Length));
             Console.CursorLeft = 0;
+
+            var @params = new[]
+            {
+                ("Circle", "maru", CIRCLE),
+                ("Left", "hidari", LEFT),
+                ("Right", "migi", RIGHT),
+                ("Up", "ue", UP),
+                ("Down", "sita", DOWN)
+            };
+            foreach (var (name, jpName, index) in @params)
+            {
+                Console.WriteLine(
+                    _isLocaleJp
+                        ? $"{jpName} NO-TO OFUSETTO: {_notes[index].Left}"
+                        : $"{name} note offset: {_notes[index].Left}"
+                );
+                Console.Write(
+                    _isLocaleJp
+                        ? "atarasii OFUSETTO (kuuhaku de KI-PU suru): "
+                        : "New offset (leave blank to keep): "
+                );
+                string offsetStr = Console.ReadLine().Trim();
+                if (offsetStr.Length > 0)
+                {
+                    _notes[index].Left = int.Parse(offsetStr);
+                }
+            }
+
+            Console.WriteLine(
+                _isLocaleJp
+                    ? $"Workaround: {_hardwareAccelerated}"
+                    : $"Workaround: {_hardwareAccelerated}"
+            );
+            Console.Write(
+                _isLocaleJp
+                    ? "atarasii settei (kuuhaku de KI-PU suru): "
+                    : "New value (leave blank to keep): "
+            );
+            string workaroundStr = Console.ReadLine().Trim();
+            if (workaroundStr.Length > 0)
+            {
+                bool value = bool.Parse(workaroundStr);
+                if (value != _hardwareAccelerated)
+                {
+                    InvalidateTargetPos();
+                }
+                if (value)
+                {
+                    ActivateDirectXWorkaround(false);
+                }
+                else
+                {
+                    _hardwareAccelerated = false;
+                }
+            }
+
+            WriteConfig();
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine(_optionsMsg);
         }
 
         private static Settings GetSettings()
@@ -301,7 +425,7 @@ namespace Holocure_Auto_Fishing_Bot
             string fullscreenStr = fullscreenMatch.Groups[1].Value.Trim();
             PrintLine(
                 _isLocaleJp
-                    ? $"furusukuri-n settei: {fullscreenStr}"
+                    ? $"FURUSUKURI-N settei: {fullscreenStr}"
                     : $"Full screen setting: {fullscreenStr}"
             );
             bool fullscreen;
@@ -343,18 +467,20 @@ namespace Holocure_Auto_Fishing_Bot
 
         private static bool PlayGame()
         {
+            int left = _notes.Min(note => note.Left);
+            int top = _notes.Min(note => note.Top);
             int right = _notes.Max(note => note.Right);
             int bottom = _notes.Max(note => note.Bottom);
 
             ReadonlyImage targetArea = CaptureHolocureWindow(
-                _targetLeft,
-                _targetTop,
+                _targetLeft + left,
+                _targetTop + top,
                 right,
                 bottom
             );
             foreach (Note note in _notes)
             {
-                if (targetArea.ContainsNote(note))
+                if (targetArea.ContainsNote(note, left, top))
                 {
                     PrintLine($"Pressing {note.Button}");
                     InputUtils.SendKeyPress(_windowHandle, note.Button);
@@ -368,13 +494,13 @@ namespace Holocure_Auto_Fishing_Bot
         private static bool IsGameFisished()
         {
             ReadonlyImage okArea = CaptureHolocureWindow(_targetLeft - 73, _targetTop + 17, 31, 39);
-            return okArea.Find(_okImage) != (-1, -1);
+            return okArea.Find(_okImg) != (-1, -1);
         }
 
         private static bool FindTarget()
         {
             ReadonlyImage screen = CaptureHolocureWindow();
-            (_targetLeft, _targetTop) = screen.Find(_targetImage);
+            (_targetLeft, _targetTop) = screen.Find(_targetImg);
             if (_targetLeft >= 0 && _targetTop >= 0)
             {
                 PrintLine(
@@ -393,7 +519,7 @@ namespace Holocure_Auto_Fishing_Bot
             _targetTop = -1;
         }
 
-        private static void ActivateDirectXWorkaround()
+        private static void ActivateDirectXWorkaround(bool updateNotes)
         {
             if (_hardwareAccelerated)
             {
@@ -401,15 +527,17 @@ namespace Holocure_Auto_Fishing_Bot
             }
 
             _hardwareAccelerated = true;
+            InvalidateTargetPos();
 
-            _notes = new Note[]
+            if (updateNotes)
             {
-                new Note(new ReadonlyImage("img/circle.png"), _settings.Buttons[0], 3, 15, 32, 32),
-                new Note(new ReadonlyImage("img/left.png"), _settings.Buttons[2], 1, 14, 32, 33),
-                new Note(new ReadonlyImage("img/right.png"), _settings.Buttons[3], 1, 14, 32, 33),
-                new Note(new ReadonlyImage("img/up.png"), _settings.Buttons[4], 2, 13, 32, 34),
-                new Note(new ReadonlyImage("img/down.png"), _settings.Buttons[5], 2, 13, 32, 34)
-            };
+                _notes[CIRCLE].Left = 3;
+                _notes[LEFT].Left = 1;
+                _notes[RIGHT].Left = 1;
+                _notes[UP].Left = 2;
+                _notes[DOWN].Left = 2;
+            }
+            WriteConfig();
 
             PrintLine(
                 _isLocaleJp
@@ -456,6 +584,22 @@ namespace Holocure_Auto_Fishing_Bot
 
             // Bring HoloCure window to front
             SetForegroundWindow(_windowHandle);
+        }
+
+        public static TValue GetOrDefault<TKey, TValue>(
+            this Dictionary<TKey, TValue> self,
+            TKey key,
+            TValue @default
+        )
+        {
+            if (self.TryGetValue(key, out TValue found))
+            {
+                return found;
+            }
+            else
+            {
+                return @default;
+            }
         }
     }
 }
