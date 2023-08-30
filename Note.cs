@@ -1,41 +1,44 @@
-internal readonly struct Note
+namespace Holocure_Auto_Fishing_Bot
 {
-    #region Properties
-    public ReadonlyImage Image { get; }
-    public string Button { get; }
-
-    public int Left { get; }
-    public int Top { get; }
-    public int Right { get; }
-    public int Bottom { get; }
-    #endregion
-
-    public Note(ReadonlyImage image, string button, int left, int top, int right, int bottom)
+    internal readonly struct Note
     {
-        Image = image;
-        Button = button;
-        Left = left;
-        Top = top;
-        Right = right;
-        Bottom = bottom;
-    }
-}
+        #region Properties
+        public ReadonlyImage Image { get; }
+        public string Button { get; }
 
-internal static class NoteExtensions
-{
-    public static bool ContainsNote(this ReadonlyImage self, Note note)
-    {
-        for (int x = note.Left; x <= note.Right - note.Image.Width; x++)
+        public int Left { get; }
+        public int Top { get; }
+        public int Right { get; }
+        public int Bottom { get; }
+        #endregion
+
+        public Note(ReadonlyImage image, string button, int left, int top, int right, int bottom)
         {
-            for (int y = note.Top; y <= note.Bottom - note.Image.Height; y++)
+            Image = image;
+            Button = button;
+            Left = left;
+            Top = top;
+            Right = right;
+            Bottom = bottom;
+        }
+    }
+
+    internal static class NoteExtensions
+    {
+        public static bool ContainsNote(this ReadonlyImage self, Note note)
+        {
+            for (int x = note.Left; x <= note.Right - note.Image.Width; x++)
             {
-                if (self.CroppedEquals(note.Image, x, y))
+                for (int y = note.Top; y <= note.Bottom - note.Image.Height; y++)
                 {
-                    return true;
+                    if (self.CroppedEquals(note.Image, x, y))
+                    {
+                        return true;
+                    }
                 }
             }
-        }
 
-        return false;
+            return false;
+        }
     }
 }
