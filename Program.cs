@@ -29,6 +29,9 @@ namespace Holocure_Auto_Fishing_Bot
         #region DLL Imports
         [DllImport("user32")]
         private static extern bool SetForegroundWindow(IntPtr hwnd);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern uint SetThreadExecutionState(uint esFlags);
         #endregion
 
         #region Constants
@@ -175,6 +178,8 @@ namespace Holocure_Auto_Fishing_Bot
 
         private static void Main(string[] args)
         {
+            PreventSleep();
+
             PrintLine(_isLocaleJp ? "BOTTO wo kidou simasita." : "Bot started.");
             PrintLine(_isLocaleJp ? "CTRL + C wo osite teisi." : "Press ctrl + C to stop.");
             if (!_hardwareAccelerated)
@@ -286,6 +291,14 @@ namespace Holocure_Auto_Fishing_Bot
             Console.WriteLine(obj.ToString().PadRight(_optionsMsg.Length));
             Console.WriteLine("".PadRight(_optionsMsg.Length));
             Console.WriteLine(_optionsMsg);
+        }
+
+        private static void PreventSleep()
+        {
+            const uint ES_CONTINUOUS = 0x80000000;
+            const uint ES_DISPLAY_REQUIRED = 0x00000002;
+
+            SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED);
         }
 
         private static void WriteConfig()
