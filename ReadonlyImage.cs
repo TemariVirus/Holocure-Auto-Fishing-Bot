@@ -126,11 +126,13 @@ namespace Holocure_Auto_Fishing_Bot
         public ReadonlyImage ShrinkBy(int factor)
         {
             ReadonlyImage shrunk = new ReadonlyImage(Width / factor, Height / factor);
+            int xOffset = Width % factor;
+            int yOffset = Height % factor;
             for (int i = 0; i < shrunk.Width; i++)
             {
                 for (int j = 0; j < shrunk.Height; j++)
                 {
-                    shrunk[i, j] = this[i * factor, j * factor];
+                    shrunk[i, j] = this[i * factor + xOffset, j * factor + yOffset];
                 }
             }
 
