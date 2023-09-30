@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace Holocure_Auto_Fishing_Bot
@@ -44,6 +46,8 @@ namespace Holocure_Auto_Fishing_Bot
         #endregion
 
         private static readonly double _scaleFactor = GetScalingFactor();
+        private static int _debugImgCounter = 0;
+        private static Stopwatch _debugSaveSw = Stopwatch.StartNew();
 
         // https://stackoverflow.com/a/21450169
         private static double GetScalingFactor()
@@ -116,6 +120,26 @@ namespace Holocure_Auto_Fishing_Bot
             return 0;
         }
 
+        private static void SaveDebugImg(ReadonlyImage img)
+        {
+            // Save at most 5 images per second to minimise performance impact
+            if (_debugSaveSw.ElapsedMilliseconds < 200)
+            {
+                return;
+            }
+            _debugSaveSw.Restart();
+
+            if (!Directory.Exists("debug"))
+            {
+                Directory.CreateDirectory("debug");
+            }
+
+            // Save at most 10 different images
+            _debugImgCounter %= 10;
+            string path = $"debug/{_debugImgCounter++}.png";
+            img.Save(path);
+        }
+
         // Always behaves as if the window is 640 x 360
         private static ReadonlyImage CaptureHolocureWindow(
             int left = 0,
@@ -169,7 +193,9 @@ namespace Holocure_Auto_Fishing_Bot
                     _lastSS = new ReadonlyImage(bmp);
                 }
 
-                return _lastSS.Crop(left, top, width, height).ShrinkBy(_resolution);
+                var ret = _lastSS.Crop(left, top, width, height).ShrinkBy(_resolution);
+                SaveDebugImg(ret);
+                return ret;
             }
             else
             {
@@ -181,7 +207,10 @@ namespace Holocure_Auto_Fishing_Bot
 
                 graphics.ReleaseHdc(hdcBitmap);
                 ReleaseDC(_windowHandle, hdcWindow);
-                return new ReadonlyImage(bmp).ShrinkBy(_resolution);
+
+                var ret = new ReadonlyImage(bmp).ShrinkBy(_resolution);
+                SaveDebugImg(ret);
+                return ret;
             }
         }
 
