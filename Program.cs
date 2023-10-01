@@ -180,8 +180,10 @@ namespace Holocure_Auto_Fishing_Bot
         {
             PreventSleep();
 
+            CleanUpDebug();
+
             PrintLine(_isLocaleJp ? "BOTTO wo kidou simasita." : "Bot started.");
-            PrintLine(_isLocaleJp ? "CTRL + C wo osite teisi." : "Press ctrl + C to stop.");
+            PrintLine(_isLocaleJp ? "kono mado wo tojite teisi." : "Close this window to stop.");
             if (!_hardwareAccelerated)
             {
                 PrintLine(
@@ -227,15 +229,18 @@ namespace Holocure_Auto_Fishing_Bot
                     }
                 }
 
-                // Play game
-                bool noteFound = PlayGame();
-                if (noteFound)
+                // Play game if target area found
+                if (_targetLeft >= 0 && _targetTop >= 0)
                 {
-                    timeoutSw.Restart();
-                }
-                else
-                {
-                    playing = !IsGameFisished();
+                    bool noteFound = PlayGame();
+                    if (noteFound)
+                    {
+                        timeoutSw.Restart();
+                    }
+                    else
+                    {
+                        playing = !IsGameFisished();
+                    }
                 }
 
                 // Aim for a little over 60 cycles per second to match framerate
@@ -299,6 +304,25 @@ namespace Holocure_Auto_Fishing_Bot
             const uint ES_DISPLAY_REQUIRED = 0x00000002;
 
             SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED);
+        }
+
+        private static void CleanUpDebug()
+        {
+            // Delete only debug images specifically, in case someone puts
+            // something important in the debug folder (don't do it pls)
+            for (int i = 0; i < DEBUG_MAX_IMAGES; i++)
+            {
+                string path = $"debug/{i}.png";
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+
+            if (File.Exists("debug/target.png"))
+            {
+                File.Delete("debug/target.png");
+            }
         }
 
         private static void WriteConfig()
@@ -393,6 +417,8 @@ namespace Holocure_Auto_Fishing_Bot
             Console.WriteLine();
             Console.WriteLine();
             Console.WriteLine(_optionsMsg);
+
+            StartGame();
         }
 
         private static Settings GetSettings()
@@ -516,19 +542,28 @@ namespace Holocure_Auto_Fishing_Bot
 
         private static bool FindTarget()
         {
-            ReadonlyImage screen = CaptureHolocureWindow();
+            const int X_OFFSET = 320;
+            const int Y_OFFSET = 190;
+
+            // Search only a section of the screen
+            ReadonlyImage screen = CaptureHolocureWindow(X_OFFSET, Y_OFFSET, 160, 160);
             (_targetLeft, _targetTop) = screen.Find(_targetImg);
             if (_targetLeft >= 0 && _targetTop >= 0)
             {
+                _targetLeft += X_OFFSET;
+                _targetTop += Y_OFFSET;
+
                 PrintLine(
                     _isLocaleJp
                         ? $"TA-GETTO ga mitukarimasita: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
                         : $"Target area found: X={_targetLeft * _resolution}, Y={_targetTop * _resolution}"
                 );
+                screen.Save("debug/target.png");
                 _captureWorks = true;
+                return true;
             }
 
-            return _targetLeft == -1 && _targetTop == -1;
+            return false;
         }
 
         private static void InvalidateTargetPos()

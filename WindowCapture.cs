@@ -46,6 +46,7 @@ namespace Holocure_Auto_Fishing_Bot
         #endregion
 
         private static readonly double _scaleFactor = GetScalingFactor();
+        private const int DEBUG_MAX_IMAGES = 20;
         private static int _debugImgCounter = 0;
         private static Stopwatch _debugSaveSw = Stopwatch.StartNew();
 
@@ -122,8 +123,8 @@ namespace Holocure_Auto_Fishing_Bot
 
         private static void SaveDebugImg(ReadonlyImage img)
         {
-            // Save at most 5 images per second to minimise performance impact
-            if (_debugSaveSw.ElapsedMilliseconds < 200)
+            // Save at most 2 images per second to minimise performance impact
+            if (_debugSaveSw.ElapsedMilliseconds < 500)
             {
                 return;
             }
@@ -134,8 +135,7 @@ namespace Holocure_Auto_Fishing_Bot
                 Directory.CreateDirectory("debug");
             }
 
-            // Save at most 10 different images
-            _debugImgCounter %= 10;
+            _debugImgCounter %= DEBUG_MAX_IMAGES;
             string path = $"debug/{_debugImgCounter++}.png";
             img.Save(path);
         }
@@ -158,11 +158,11 @@ namespace Holocure_Auto_Fishing_Bot
             height *= _resolution;
             if (width < 0)
             {
-                width = _windowWidth;
+                width = _windowWidth - left;
             }
             if (height < 0)
             {
-                height = _windowHeight;
+                height = _windowHeight - top;
             }
 
             // Return black image if can't capture window
