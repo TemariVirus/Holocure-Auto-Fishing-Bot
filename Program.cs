@@ -438,7 +438,7 @@ namespace Holocure_Auto_Fishing_Bot
 
             Match buttonsMatch = Regex.Match(
                 jsonText,
-                @"""theButtons"":\[(""\w+""(,""\w+""){5})\]",
+                @"""theButtons"":\[(""\w+""(,""\w+""){5,})\]",
                 RegexOptions.IgnoreCase
             );
             if (!buttonsMatch.Success)
