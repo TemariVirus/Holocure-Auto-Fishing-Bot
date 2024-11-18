@@ -19,3 +19,15 @@ Currently the bot is practically 100% accurate, and uses very little CPU resourc
 This project only requires the .NET 4.8 runtime, which has come shipped with Windows since... a long time ago. If you don't have it for some reason, you can download it [here](https://dotnet.microsoft.com/en-us/download/dotnet-framework/thank-you/net48-web-installer). If HoloCure becomes cross-platform I'll look into possibly changing the .NET version so that the bot is cross-platform as well.
 
 このプロジェクトは .NET 4.8 ランタイムのみを必要とします。.NET 4.8 ランタイムはかなり前から Windows に付属しています。もし何らかの理由でインストールされていない場合は、[ここ](https://dotnet.microsoft.com/ja-jp/download/dotnet-framework/thank-you/net48-web-installer)からダウンロードできます。もし HoloCure がクロスプラットフォームになったら、ボットもクロスプラットフォームにするかもしれません。
+
+## FAQ
+
+### The bot is hitting notes, but gets a lot of 'ok's and 'bad's
+
+Go to the bot's terminal window and press 'c'. This should open the config dialogue. If the bot is hitting notes too late, you'll want to decrease the offsets. Likewise, if the bot is hitting notes too early, you'll want to increase the offsets. You can only use whole numbers (positive or negative) for the offsets.
+
+If you don't have the bot running, you can also edit the config in `config.txt` and then start up the bot.
+
+### Will there be a mining bot?
+
+I have no plans to make one currently. The mining minigame is a lot less dependent on luck, and from my own experience you should get the hololite prism in around 3 hours or less.
