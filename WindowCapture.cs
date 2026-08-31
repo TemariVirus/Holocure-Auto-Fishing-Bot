@@ -23,7 +23,10 @@ namespace Holocure_Auto_Fishing_Bot
         private static extern IntPtr GetWindowRect(IntPtr hWnd, ref Rect rect);
 
         [DllImport("user32.dll")]
-        private static extern IntPtr GetWindowDC(IntPtr hWnd);
+        private static extern uint GetDpiForWindow(IntPtr hWind);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetDC(IntPtr hWnd);
 
         [DllImport("gdi32.dll")]
         private static extern uint BitBlt(
@@ -40,46 +43,31 @@ namespace Holocure_Auto_Fishing_Bot
 
         [DllImport("user32.dll")]
         private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDc);
-
-        [DllImport("gdi32.dll")]
-        private static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
         #endregion
 
-        private static readonly double _scaleFactor = GetScalingFactor();
         private const int DEBUG_MAX_IMAGES = 20;
         private static int _debugImgCounter = 0;
         private static Stopwatch _debugSaveSw = Stopwatch.StartNew();
-
-        // https://stackoverflow.com/a/21450169
-        private static double GetScalingFactor()
-        {
-            const int VERT_RES = 10;
-            const int DESKTOP_VERT_RES = 117;
-
-            Graphics g = Graphics.FromHwnd(IntPtr.Zero);
-            IntPtr desktop = g.GetHdc();
-            double logicalHeight = GetDeviceCaps(desktop, VERT_RES);
-            double physicalHeight = GetDeviceCaps(desktop, DESKTOP_VERT_RES);
-
-            return physicalHeight / logicalHeight;
-        }
 
         private static Rect GetWindowRectUnscaled()
         {
             Rect rect = new Rect();
             GetWindowRect(_windowHandle, ref rect);
 
-            rect.Left = (int)Math.Round(rect.Left * _scaleFactor) + 8;
-            rect.Top = (int)Math.Round(rect.Top * _scaleFactor) + 31;
-            rect.Right = (int)Math.Round(rect.Right * _scaleFactor) - 8;
-            rect.Bottom = (int)Math.Round(rect.Bottom * _scaleFactor) - 8;
+            double dpi = GetDpiForWindow(_windowHandle);
+            double scale = dpi / 96;
+
+            rect.Left = (int)Math.Round((rect.Left + 8) * scale);
+            rect.Top = (int)Math.Round((rect.Top + 31) * scale);
+            rect.Right = (int)Math.Round((rect.Right - 8) * scale);
+            rect.Bottom = (int)Math.Round((rect.Bottom - 8) * scale);
 
             return rect;
         }
 
         private static int GetHolocureResolution(Rect rect)
         {
-            const int GRACE = 32;
+            const int GRACE = 64;
 
             int width = rect.Right - rect.Left;
             int height = rect.Bottom - rect.Top;
@@ -179,39 +167,26 @@ namespace Holocure_Auto_Fishing_Bot
                 return new ReadonlyImage(640, 360);
             }
 
+            Bitmap bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            Graphics graphics = Graphics.FromImage(bmp);
+            IntPtr hdcBitmap = graphics.GetHdc();
             if (_hardwareAccelerated)
             {
-                if (_lastSS == null)
-                {
-                    Bitmap bmp = new Bitmap(
-                        _windowWidth,
-                        _windowHeight,
-                        PixelFormat.Format32bppArgb
-                    );
-                    Graphics graphics = Graphics.FromImage(bmp);
-                    graphics.CopyFromScreen(rect.Left, rect.Top, 0, 0, bmp.Size);
-                    _lastSS = new ReadonlyImage(bmp);
-                }
-
-                var ret = _lastSS.Crop(left, top, width, height).ShrinkBy(_resolution);
-                SaveDebugImg(ret);
-                return ret;
+                IntPtr hdcWindow = GetDC(IntPtr.Zero);
+                BitBlt(hdcBitmap, 0, 0, width, height, hdcWindow, rect.Left + left, rect.Top + top, 0x00CC0020);
+                ReleaseDC(_windowHandle, hdcWindow);
             }
             else
             {
-                Bitmap bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-                Graphics graphics = Graphics.FromImage(bmp);
-                IntPtr hdcBitmap = graphics.GetHdc();
-                IntPtr hdcWindow = GetWindowDC(_windowHandle);
+                IntPtr hdcWindow = GetDC(_windowHandle);
                 BitBlt(hdcBitmap, 0, 0, width, height, hdcWindow, left, top, 0x00CC0020);
-
-                graphics.ReleaseHdc(hdcBitmap);
                 ReleaseDC(_windowHandle, hdcWindow);
-
-                var ret = new ReadonlyImage(bmp).ShrinkBy(_resolution);
-                SaveDebugImg(ret);
-                return ret;
             }
+            graphics.ReleaseHdc(hdcBitmap);
+
+            var ret = new ReadonlyImage(bmp).ShrinkBy(_resolution);
+            SaveDebugImg(ret);
+            return ret;
         }
 
         private static void InvalidateLastSS()
